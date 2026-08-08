@@ -5,8 +5,8 @@ import { clerkConfigured, getCurrentUserId } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Pricing | Rover ATS",
-  description: "Monthly and annual Rover ATS resume builder pricing.",
+  title: "Pricing | AI Resume Maker",
+  description: "Monthly and annual AI Resume Maker pricing.",
 };
 
 export default async function PricingPage() {
@@ -18,7 +18,7 @@ export default async function PricingPage() {
       <AuthRequiredPanel
         clerkEnabled={clerkEnabled}
         target="/pricing"
-        message="Login or create an account to view Rover ATS pricing and premium download options."
+        message="Login or create an account to view AI Resume Maker pricing and premium download options."
       />
     );
   }
@@ -26,7 +26,7 @@ export default async function PricingPage() {
   return (
     <main className="pricing-page">
       <div className="pricing-page-hero">
-        <p className="eyebrow">Rover ATS Premium</p>
+        <p className="eyebrow">AI Resume Maker Premium</p>
         <h1>Simple pricing for ATS-ready resumes</h1>
         <p>Preview for free, then choose monthly or annual Premium when you are ready to download.</p>
       </div>

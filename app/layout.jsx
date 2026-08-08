@@ -6,8 +6,8 @@ import { clerkConfigured } from "@/lib/auth";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 
 export const metadata = {
-  title: "Rover Resume ATS",
-  description: "AI resume builder with ATS optimization, authentication, and premium downloads.",
+  title: "AI Resume Maker",
+  description: "AI resume builder with ATS optimization, editable exports, authentication, and premium downloads.",
 };
 
 export default function RootLayout({ children }) {

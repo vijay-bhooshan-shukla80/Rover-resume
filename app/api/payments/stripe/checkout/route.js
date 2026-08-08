@@ -18,7 +18,7 @@ export async function POST() {
           : {
               price_data: {
                 currency: "usd",
-                product_data: { name: "Rover ATS Premium" },
+                product_data: { name: "AI Resume Maker Premium" },
                 unit_amount: 999,
               },
               quantity: 1,

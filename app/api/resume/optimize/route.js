@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { analyzeResume, legacyResumeToCanonical } from "@/lib/ai-resume";
 import { autoImproveResume, composeResumeText, localOptimizeResume, normalizeResume, scoreResume, shouldApplyEnhancedResume } from "@/lib/resume";
-import { optimizeWithGemini, scoreWithGemini } from "@/lib/gemini";
+import { optimizeWithGemini } from "@/lib/gemini";
 import { getCurrentUserId } from "@/lib/auth";
 
 export async function POST(request) {
@@ -62,7 +63,7 @@ export async function POST(request) {
     } catch (error) {
       const resume = autoImproveResume(localOptimizeResume(rawText, effectiveTargetRole), effectiveTargetRole);
       if (conversionMode === "enhance") {
-        const ats = scoreResume(resume);
+        const ats = analyzeResume(legacyResumeToCanonical(resume), jobDescription);
         return NextResponse.json(enhanceResponse({
           resume,
           ats,
@@ -85,7 +86,7 @@ export async function POST(request) {
 }
 
 function enhanceResponse({ resume, ats, beforeScore, provider, message }) {
-  const afterScore = typeof ats?.score === "number" ? ats.score : null;
+  const afterScore = typeof ats?.readinessScore === "number" ? ats.readinessScore : null;
   const accepted = shouldApplyEnhancedResume(beforeScore, afterScore);
   return {
     ok: true,
@@ -113,12 +114,7 @@ function isStructuredResume(resume) {
 }
 
 async function optionalGeminiScore(resume, targetRole, jobDescription) {
-  try {
-    return await scoreWithGemini(resume, targetRole, jobDescription);
-  } catch (error) {
-    console.warn("optionalGeminiScore failed, using local scoreResume fallback:", error.message);
-    return scoreResume(resume);
-  }
+  return analyzeResume(legacyResumeToCanonical({ ...resume, targetRole: resume.targetRole || targetRole }), jobDescription);
 }
 
 function preserveModeTargetRole(targetRole, rawText) {

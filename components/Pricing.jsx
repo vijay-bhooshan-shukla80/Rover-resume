@@ -19,7 +19,7 @@ export function Pricing({ variant = "home", clerkEnabled = true }) {
       <div className="section-head pricing-head">
         <div>
           <p className="eyebrow">Pricing</p>
-          <h2>{isPage ? "Choose your billing plan" : "Choose your Rover ATS plan"}</h2>
+          <h2>{isPage ? "Choose your billing plan" : "Choose your AI Resume Maker plan"}</h2>
           <p>Start free, then unlock downloads only when you are ready.</p>
         </div>
         <BillingToggle billing={billing} onChange={setBilling} />

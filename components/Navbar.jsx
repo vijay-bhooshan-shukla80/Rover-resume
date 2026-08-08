@@ -6,7 +6,7 @@ export function Navbar({ clerkEnabled = true }) {
     <header className="topbar">
       <Link className="brand" href="/">
         <span>Rx</span>
-        <strong>Rover ATS</strong>
+        <strong>AI Resume Maker</strong>
       </Link>
       <NavActions clerkEnabled={clerkEnabled} />
     </header>

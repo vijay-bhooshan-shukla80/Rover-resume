@@ -6,7 +6,7 @@ import { useState } from "react";
 import { clerkAppearance } from "@/lib/clerk-appearance";
 
 const defaultTitle = "Please sign up or login first";
-const defaultMessage = "Create an account or login to open Rover ATS services.";
+const defaultMessage = "Create an account or login to open AI Resume Maker.";
 
 export function AuthGateLink({
   href,
@@ -47,7 +47,7 @@ export function AuthRequiredPanel({
         message={
           clerkEnabled
             ? message
-            : "Add valid Clerk publishable and secret keys before opening protected Rover ATS services."
+            : "Add valid Clerk publishable and secret keys before opening protected AI Resume Maker pages."
         }
       />
     </main>
@@ -65,7 +65,7 @@ export function NavActions({ clerkEnabled = true }) {
           Sign Up
         </Link>
         <Link className="ghost-btn" href="/career-cockpit">
-          Resume Builder
+          AI Resume Maker
         </Link>
       </nav>
     );
@@ -105,7 +105,7 @@ function ClerkNavActions() {
     return (
       <nav className="actions">
         <Link className="ghost-btn" href="/career-cockpit">
-          Resume Builder
+          AI Resume Maker
         </Link>
         <div className="user-button-shell">
           <UserButton afterSignOutUrl="/" appearance={clerkAppearance} />
@@ -137,7 +137,7 @@ function ClerkNavActions() {
         </button>
       </SignUpButton>
       <Link className="ghost-btn" href="/career-cockpit">
-        Resume Builder
+        AI Resume Maker
       </Link>
     </nav>
   );
@@ -155,7 +155,7 @@ function UnavailableGateButton({ className, title, message, children }) {
         <AuthGateModal
           clerkEnabled={false}
           title="Authentication is unavailable"
-          message="Add valid Clerk publishable and secret keys before opening protected Rover ATS services."
+          message="Add valid Clerk publishable and secret keys before opening protected AI Resume Maker pages."
           onClose={() => setOpen(false)}
         />
       ) : null}

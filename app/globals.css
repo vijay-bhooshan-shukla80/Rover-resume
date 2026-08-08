@@ -1185,12 +1185,13 @@ a {
 }
 
 .paper {
-  min-height: 760px;
-  padding: 36px;
+  min-height: var(--resume-page-min-height, 760px);
+  width: min(100%, var(--resume-page-width, 794px));
+  padding: var(--resume-padding, 36px);
   background: var(--paper);
   color: var(--ink);
-  font-family: Georgia, "Times New Roman", serif;
-  line-height: 1.28;
+  font-family: var(--resume-font-family, Calibri, "Carlito", Arial, sans-serif);
+  line-height: var(--resume-line-height, 1.16);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
   /* ATS-Optimized Text Rendering */
   word-break: normal;
@@ -1204,7 +1205,7 @@ a {
 .paper h1 {
   margin: 0;
   text-align: center;
-  font-size: 34px;
+  font-size: var(--resume-name-size, 19.2pt);
   line-height: 1;
 }
 
@@ -1246,35 +1247,39 @@ a {
 }
 
 .paper h2 {
-  margin-top: 22px;
-  margin-bottom: 12px;
+  margin-top: var(--resume-section-gap, 14px);
+  margin-bottom: var(--resume-heading-gap, 12px);
   padding-bottom: 4px;
   border-bottom: 1px solid #222;
-  font-size: 20px;
+  font-size: var(--resume-heading-size, 11pt);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.08;
   letter-spacing: 0.3px;
   text-transform: uppercase;
+  text-align: left;
 }
 
 .paper p {
   margin-top: 0;
-  margin-bottom: 8px;
-  font-size: 13px;
+  margin-bottom: var(--resume-paragraph-gap, 6px);
+  font-size: var(--resume-body-size, 9.8pt);
   text-align: justify;
-  line-height: 1.45;
+  line-height: var(--resume-line-height, 1.16);
+  text-justify: inter-word;
 }
 
 .paper ul {
-  margin-top: 6px;
-  margin-bottom: 8px;
-  padding-left: 18px;
+  margin-top: 0;
+  margin-bottom: var(--resume-bullet-gap, 4px);
+  padding-left: var(--resume-bullet-indent, 15pt);
 }
 
 .paper li {
-  margin: 4px 0;
-  font-size: 13px;
+  margin: 0 0 var(--resume-bullet-gap, 4px);
+  font-size: var(--resume-body-size, 9.8pt);
   text-align: justify;
+  line-height: var(--resume-line-height, 1.16);
+  text-justify: inter-word;
 }
 
 .resume-skills {
@@ -1291,12 +1296,23 @@ a {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 6px 18px;
+  gap: 4px 14px;
   font-weight: 700;
+  margin-bottom: 3px;
 }
 
 .resume-row strong {
   min-width: 0;
+}
+
+.resume-row-date {
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.resume-bullet-list {
+  list-style-position: outside;
 }
 
 .education-row {
@@ -2166,5 +2182,150 @@ a {
     display: flex !important;
     flex-direction: row !important;
     justify-content: space-between !important;
+  }
+}
+
+.settings-card,
+.fit-warning-card,
+.diff-card,
+.fit-suggestion {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.42);
+  border-radius: 18px;
+}
+
+.settings-actions,
+.section-add-grid,
+.inline-actions,
+.mobile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.section-title-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.section-title-input:focus {
+  outline: none;
+}
+
+.field select {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.8);
+  color: #f8fafc;
+  padding: 12px 14px;
+}
+
+.static-card {
+  pointer-events: none;
+}
+
+.paged-preview-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.paged-paper {
+  position: relative;
+  min-height: var(--resume-page-min-height, 1120px);
+}
+
+.page-chip {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.resume-meta,
+.contact-preview {
+  color: #334155;
+}
+
+.contact-preview {
+  text-align: center !important;
+  text-wrap: balance;
+}
+
+.resume-meta {
+  text-align: left !important;
+}
+
+.fit-warning-card,
+.preview-paywall {
+  margin-bottom: 14px;
+  padding: 16px;
+}
+
+.fit-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.fit-suggestion span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fit-suggestion small {
+  color: #94a3b8;
+}
+
+.diff-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.diff-card {
+  padding: 14px;
+}
+
+.mobile-tabs {
+  display: none;
+  margin-bottom: 12px;
+}
+
+.danger {
+  color: #fecaca;
+}
+
+.warning small,
+.warning strong {
+  color: #fbbf24;
+}
+
+@media (max-width: 920px) {
+  .mobile-tabs {
+    display: flex;
+  }
+
+  .mobile-hidden {
+    display: none;
+  }
+
+  .mobile-hidden-preview {
+    display: none;
+  }
+
+  .paged-paper {
+    min-height: auto;
   }
 }

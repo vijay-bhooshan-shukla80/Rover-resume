@@ -4,51 +4,75 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { PaymentButtons } from "@/components/PaymentButtons";
-import { autoImproveResume, composeResumeText, localOptimizeResume, normalizeResume, sampleResume, scoreResume, shouldApplyEnhancedResume } from "@/lib/resume";
+import {
+  addSection,
+  analyzeResume,
+  applyFitSuggestions,
+  buildAiDiff,
+  buildDocxFromCanonical,
+  buildTxtExport,
+  canBypassPremiumGate,
+  canonicalToLegacy,
+  canonicalToPlainText,
+  createDefaultWorkingResume,
+  DEFAULT_DOCUMENT_SETTINGS,
+  duplicateSection,
+  ensureCanonicalResume,
+  expectedVisibleStrings,
+  getPaginatedDocumentModel,
+  legacyResumeToCanonical,
+  moveSection,
+  parseImportedResume,
+  preserveImportedSourceCoverage,
+  RESUME_FONT_STACK,
+  updateDocumentSettings,
+  updateProfileField,
+  updateSection,
+  updateTargetRole,
+  deleteSection,
+} from "@/lib/ai-resume";
 
-const blankExperience = { title: "", company: "", dates: "", bullets: "" };
-const blankProject = { title: "", subtitle: "", dates: "", bullets: "" };
-const blankEducation = { degree: "", school: "", dates: "" };
-const blankCertification = { title: "", issuer: "", dates: "" };
-
+const STORAGE_KEY = "ai_resume_maker_v2";
+const LEGACY_STORAGE_KEYS = ["ai_resume_maker_v1"];
 const pendingAts = {
-  score: null,
-  grade: "",
-  status: "Gemini checking",
-  checks: [],
-  notes: [],
+  readinessScore: null,
+  jobMatchScore: null,
   breakdown: [],
+  issues: [],
+  recommendations: [],
+  matchedKeywords: [],
+  missingKeywords: [],
+  partialKeywords: [],
 };
-
 
 export function ResumeBuilder({ initialPremium = false }) {
   const { isLoaded, isSignedIn: clerkSignedIn } = useAuth();
-  const fileInputRef = useRef(null);
-  const lastScoredText = useRef("");
-  const [resume, setResume] = useState(sampleResume);
-  const [premium, setPremium] = useState(initialPremium);
   const signedIn = isLoaded ? clerkSignedIn : false;
-  const [importLoading, setImportLoading] = useState(false);
-  const [enhanceLoading, setEnhanceLoading] = useState(false);
+  const fileInputRef = useRef(null);
+  const settingsRef = useRef(null);
+  const [workingResume, setWorkingResume] = useState(loadInitialResume);
+  const [premium, setPremium] = useState(initialPremium);
+  const [jobDescription, setJobDescription] = useState("");
   const [message, setMessage] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [importText, setImportText] = useState("");
+  const [importLoading, setImportLoading] = useState(false);
   const [uploadInfo, setUploadInfo] = useState(null);
-  const [importStatus, setImportStatus] = useState("");
-  const [importError, setImportError] = useState("");
-  const [targetRole, setTargetRole] = useState(sampleResume.targetRole || "");
   const [uploadTargetRole, setUploadTargetRole] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
-  const [ats, setAts] = useState(pendingAts);
-  const [atsLoading, setAtsLoading] = useState(true);
-  const [atsError, setAtsError] = useState("");
+  const [importError, setImportError] = useState("");
+  const [fitPreview, setFitPreview] = useState(null);
+  const [aiProposal, setAiProposal] = useState(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [authGateOpen, setAuthGateOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("edit");
+  const [enhanceLoading, setEnhanceLoading] = useState(false);
+  const [selectedFitIds, setSelectedFitIds] = useState([]);
 
-  const cleanResume = useMemo(() => autoImproveResume(resume, targetRole), [resume, targetRole]);
-  const atsScore = typeof ats.score === "number" ? `${ats.score}%` : "--";
-  const atsStatus = atsLoading ? "Gemini checking..." : [ats.grade, ats.status].filter(Boolean).join(" / ") || "AI score pending";
-  const toastType = /success|optimized|created|uploaded|unlocked/i.test(message) ? "success" : "warning";
+  const analysis = useMemo(() => analyzeResume(workingResume, jobDescription), [workingResume, jobDescription]);
+  const pageModel = useMemo(() => getPaginatedDocumentModel(workingResume), [workingResume]);
+  const canTestExports = canBypassPremiumGate();
+  const premiumUnlocked = premium || canTestExports;
+  const toastType = /success|saved|ready|applied|downloaded|accepted|restored/i.test(message) ? "success" : "warning";
 
   useEffect(() => {
     if (!signedIn) return;
@@ -59,165 +83,199 @@ export function ResumeBuilder({ initialPremium = false }) {
   }, [signedIn]);
 
   useEffect(() => {
-    if (!message || importLoading || enhanceLoading) return;
-    const timer = window.setTimeout(() => setMessage(""), 4600);
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(""), 4200);
     return () => window.clearTimeout(timer);
-  }, [message, importLoading, enhanceLoading]);
+  }, [message]);
 
   useEffect(() => {
-    if (!signedIn) return;
-    const text = composeResumeText(cleanResume);
-    if (!resumeReadyForAiScore(cleanResume)) {
-      setAts({ ...pendingAts, status: "Add resume details" });
-      setAtsLoading(false);
-      setAtsError("");
-      return;
-    }
-    if (text === lastScoredText.current) return;
-
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
-      setAtsLoading(true);
-      setAtsError("");
-      try {
-        const response = await fetch("/api/resume/score", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-          signal: controller.signal,
-          body: JSON.stringify({ resume: cleanResume, targetRole, jobDescription }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || "Gemini ATS score failed.");
-        setAts(normalizeClientAts(payload.ats));
-        lastScoredText.current = text;
-      } catch (error) {
-        if (error.name === "AbortError") return;
-        setAts((prev) => ({ ...prev, status: "AI score unavailable" }));
-        setAtsError(error.message || "Gemini ATS score unavailable.");
-      } finally {
-        if (!controller.signal.aborted) setAtsLoading(false);
-      }
-    }, 2500);
-
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [cleanResume, jobDescription, signedIn, targetRole]);
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(workingResume));
+    } catch {}
+  }, [workingResume]);
 
   useEffect(() => {
-    if (signedIn) return;
-    const text = composeResumeText(cleanResume);
-    if (!resumeReadyForAiScore(cleanResume)) {
-      setAts({ ...pendingAts, status: "Add resume details" });
-      setAtsLoading(false);
-      setAtsError("");
-      return;
-    }
-    if (text === lastScoredText.current) return;
-    setAts(scoreResume(cleanResume));
-    setAtsLoading(false);
-    setAtsError("");
-    lastScoredText.current = text;
-  }, [cleanResume, signedIn]);
+    if (!fitPreview) return;
+    setSelectedFitIds(fitPreview.suggestions.filter((item) => item.type !== "format-only").map((item) => item.id));
+  }, [fitPreview]);
 
-  function updateField(field, value) {
-    setResume((current) => ({ ...current, [field]: value }));
-    if (field === "targetRole") setTargetRole(value);
+  function updateResume(next) {
+    setWorkingResume(ensureCanonicalResume(next));
   }
 
-  function updateList(type, index, field, value) {
-    setResume((current) => ({
-      ...current,
-      [type]: current[type].map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
-    }));
+  function requireDocumentSettings() {
+    if (workingResume.documentSettings?.settingsConfirmed) return true;
+    setMessage("Confirm document settings before creating, uploading, or generating a resume.");
+    settingsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return false;
   }
 
-  function addItem(type) {
-    const fallback = type === "experience" ? blankExperience : type === "projects" ? blankProject : type === "education" ? blankEducation : blankCertification;
-    setResume((current) => ({ ...current, [type]: [...current[type], fallback] }));
+  function confirmDocumentSettingsSilently() {
+    if (workingResume.documentSettings?.settingsConfirmed) return;
+    updateResume(updateDocumentSettings(workingResume, { settingsConfirmed: true }));
   }
 
-  function removeItem(type, index) {
-    const fallback = type === "experience" ? blankExperience : type === "projects" ? blankProject : type === "education" ? blankEducation : blankCertification;
-    setResume((current) => {
-      const next = current[type].filter((_, itemIndex) => itemIndex !== index);
-      return { ...current, [type]: next.length ? next : [fallback] };
-    });
+  function confirmDocumentSettings() {
+    updateResume(updateDocumentSettings(workingResume, { settingsConfirmed: true }));
+    setMessage("Document settings confirmed.");
   }
 
   function startNewResume() {
-    setResume({
-      name: "",
-      phone: "",
-      email: "",
-      location: "",
-      linkedin: "",
-      github: "",
-      targetRole: "",
-      summary: "",
-      skills: "",
-      achievements: "",
-      certifications: [blankCertification],
-      experience: [blankExperience],
-      projects: [blankProject],
-      education: [blankEducation],
-    });
-    setTargetRole("");
-    setMessage("Blank resume ready. Fill the form or upload a resume for AI conversion.");
+    if (!requireDocumentSettings()) return;
+    const next = createDefaultWorkingResume();
+    next.documentSettings = { ...workingResume.documentSettings, settingsConfirmed: true };
+    next.jobAnalysis = null;
+    updateResume(next);
+    setJobDescription("");
+    setMessage("Blank resume ready.");
   }
 
   function openUpload() {
+    confirmDocumentSettingsSilently();
     setImportOpen(true);
     setImportError("");
-    setImportStatus("");
-    setUploadTargetRole("");
-    setMessage("Upload a PDF/TXT resume or paste text, then click AI Convert Resume.");
+    setUploadTargetRole(workingResume.targetRole || "");
+    setUploadInfo(null);
+    setMessage("Upload PDF, DOCX, or TXT, then convert it into the canonical resume editor.");
   }
 
-  async function enhanceResumeContent() {
-    const text = composeResumeText(cleanResume);
-    if (!text || text.length < 50) {
-      setMessage("Please add some resume content first before enhancing.");
+  function setProfileField(field, value) {
+    updateResume(updateProfileField(workingResume, field, value));
+  }
+
+  function setTargetRoleField(value) {
+    updateResume(updateTargetRole(workingResume, value));
+  }
+
+  function patchSection(sectionId, updater) {
+    updateResume(updateSection(workingResume, sectionId, updater));
+  }
+
+  function addNewSection(type = "custom") {
+    updateResume(addSection(workingResume, type));
+  }
+
+  function handleSectionDelete(sectionId) {
+    updateResume(deleteSection(workingResume, sectionId));
+  }
+
+  function handleSectionDuplicate(sectionId) {
+    updateResume(duplicateSection(workingResume, sectionId));
+  }
+
+  function handleSectionMove(sectionId, direction) {
+    updateResume(moveSection(workingResume, sectionId, direction));
+  }
+
+  function toggleSectionVisibility(sectionId) {
+    patchSection(sectionId, (section) => ({ ...section, visible: !section.visible }));
+  }
+
+  function updateSettingsField(field, value) {
+    updateResume(updateDocumentSettings(workingResume, { [field]: value }));
+  }
+
+  async function handleFile(file) {
+    if (!file) return;
+    setUploadInfo({ name: file.name, status: "Reading file...", chars: 0 });
+    const lower = file.name.toLowerCase();
+    try {
+      let text = "";
+      if (lower.endsWith(".pdf")) {
+        text = await readPdf(file);
+      } else if (lower.endsWith(".docx")) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch("/api/resume/parse-docx", { method: "POST", body: formData });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "DOCX parsing failed.");
+        text = payload.text || "";
+      } else if (/\.(txt|md|csv)$/i.test(file.name) || file.type.startsWith("text/")) {
+        text = normalizeUploadedResumeText(await file.text());
+      } else {
+        throw new Error("Use PDF, DOCX, TXT, MD, or CSV files.");
+      }
+      setImportText(text);
+      setUploadInfo({ name: file.name, status: "Source text extracted", chars: text.length, fileType: file.type || lower });
+      setImportError("");
+      setMessage("Resume source extracted. Click Convert Resume.");
+    } catch (error) {
+      setUploadInfo({ name: file.name, status: "Parsing failed", chars: 0, fileType: file.type || lower });
+      setImportError(error.message || "Resume parsing failed.");
+      setMessage(error.message || "Resume parsing failed.");
+    }
+  }
+
+  async function convertImportedResume() {
+    if (!String(importText || "").trim()) {
+      setMessage("Paste or upload resume text before conversion.");
       return;
     }
-    const currentAts = normalizeClientAts(ats);
-    const beforeScore = typeof currentAts.score === "number" ? currentAts.score : null;
-    const currentText = text;
+    setImportLoading(true);
+    setImportError("");
+    try {
+      let canonical = parseImportedResume(importText, {
+        targetRole: uploadTargetRole,
+        documentSettings: workingResume.documentSettings,
+        fileName: uploadInfo?.name || "",
+        fileType: uploadInfo?.fileType || "text/plain",
+      });
+      canonical = preserveImportedSourceCoverage(canonical, importText);
+      canonical.documentSettings = { ...workingResume.documentSettings, settingsConfirmed: true };
+      canonical.versionSnapshots = {
+        originalResume: canonicalToLegacy(canonical),
+        workingResume: null,
+        lastAIEnhancedResume: null,
+      };
+      updateResume(canonical);
+      setImportOpen(false);
+      setMessage("Resume converted locally with source recovery, so skipped upload text stays preserved.");
+    } catch (error) {
+      setImportError(error.message || "Resume conversion failed.");
+      setMessage(error.message || "Resume conversion failed.");
+    } finally {
+      setImportLoading(false);
+    }
+  }
 
+  async function enhanceResume() {
+    const sourceText = canonicalToPlainText(workingResume);
+    if (!sourceText.trim()) {
+      setMessage("Add resume content before running AI enhancement.");
+      return;
+    }
     if (!signedIn) {
       setAuthGateOpen(true);
       return;
     }
-
     setEnhanceLoading(true);
-    setMessage("Gemini AI is enhancing your resume to improve ATS score...");
     try {
       const response = await fetch("/api/resume/optimize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ rawText: text, targetRole: targetRole || cleanResume.targetRole, jobDescription, mode: "enhance", baselineScore: beforeScore }),
+        body: JSON.stringify({
+          rawText: sourceText,
+          targetRole: workingResume.targetRole,
+          jobDescription,
+          mode: "enhance",
+        }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "AI enhancement failed.");
-      const nextResume = normalizeResume(payload.resume);
-      if (!resumeHasRealContent(nextResume)) throw new Error("AI returned incomplete content. Try again.");
-      const nextAts = normalizeClientAts(payload.ats);
-      const afterScore = typeof nextAts.score === "number" ? nextAts.score : payload.afterScore;
-      const accepted = payload.accepted !== false && shouldApplyEnhancedResume(beforeScore, afterScore);
-      if (!accepted) {
-        setAts(currentAts);
-        lastScoredText.current = currentText;
-        setMessage(payload.message || "No safer ATS improvement found; current resume kept.");
+      const next = legacyResumeToCanonical(payload.resume, workingResume.documentSettings, workingResume.rawImport);
+      const diff = buildAiDiff(workingResume, next);
+      if (!diff.length) {
+        setMessage("AI returned no meaningful content changes.");
         return;
       }
-      setResume(nextResume);
-      setTargetRole(nextResume.targetRole || targetRole);
-      setAts(nextAts);
-      lastScoredText.current = composeResumeText(nextResume);
-      setMessage(payload.message || `ATS score improved${beforeScore !== null ? ` from ${beforeScore}%` : ""} to ${afterScore}%.`);
+      setAiProposal({
+        resume: next,
+        diff,
+        beforeScore: analysis.readinessScore,
+        afterScore: analyzeResume(next, jobDescription).readinessScore,
+      });
     } catch (error) {
       setMessage(error.message || "AI enhancement failed.");
     } finally {
@@ -225,802 +283,663 @@ export function ResumeBuilder({ initialPremium = false }) {
     }
   }
 
-  async function optimizeFromText(text = importText) {
-    const sourceText = normalizeUploadedResumeText(text);
-    if (!sourceText.trim()) {
-      setMessage("Paste or upload resume text before AI conversion.");
-      return;
-    }
-    const explicitTargetRole = String(uploadTargetRole || "").trim();
-
-    if (!signedIn) {
-      setAuthGateOpen(true);
-      return;
-    }
-
-    setImportLoading(true);
-    setImportError("");
-    setImportStatus("AI is converting your resume...");
-    setMessage("Gemini AI is optimizing your ATS resume...");
-    try {
-      const response = await fetch("/api/resume/optimize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({ rawText: sourceText, targetRole: explicitTargetRole, jobDescription, mode: "preserve" }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "AI optimization failed.");
-      const nextResume = normalizeResume(payload.resume);
-      if (!resumeHasRealContent(nextResume)) throw new Error("AI conversion returned incomplete content. Paste clearer resume text and try again.");
-      setResume(nextResume);
-      setTargetRole(nextResume.targetRole || explicitTargetRole || "");
-      if (payload.ats) {
-        setAts(normalizeClientAts(payload.ats));
-        lastScoredText.current = composeResumeText(nextResume);
-      }
-      setImportStatus(payload.provider === "gemini" ? "Gemini optimized your resume." : "Local ATS optimizer converted your resume.");
-      setImportOpen(false);
-      setMessage(payload.message || (payload.provider === "gemini" ? "Gemini optimized your ATS resume." : "Local ATS fallback used."));
-      window.setTimeout(() => document.querySelector(".old-builder-grid")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
-    } catch (error) {
-      const text = error.message || "AI optimization failed.";
-      setImportError(text);
-      setMessage(text);
-    } finally {
-      setImportLoading(false);
-    }
+  function acceptAiProposal() {
+    if (!aiProposal) return;
+    const next = {
+      ...aiProposal.resume,
+      versionSnapshots: {
+        ...workingResume.versionSnapshots,
+        lastAIEnhancedResume: structuredClone(workingResume),
+      },
+    };
+    updateResume(next);
+    setAiProposal(null);
+    setMessage("AI changes accepted.");
   }
 
-  async function handleFile(file) {
-    if (!file) return;
-    setUploadInfo({ name: file.name, status: "Reading file...", chars: 0 });
-    const name = file.name.toLowerCase();
-    if (name.endsWith(".pdf")) {
-      try {
-        const text = await readPdf(file);
-        setImportText(text);
-        setUploadInfo({ name: file.name, status: "PDF text extracted", chars: text.length });
-        setImportError("");
-        setImportStatus("PDF text extracted. Click AI Convert Resume.");
-        setMessage("PDF text extracted. Click AI Convert Resume.");
-      } catch {
-        setUploadInfo({ name: file.name, status: "PDF extraction failed. Paste text manually.", chars: 0 });
-        setImportError("PDF reader unavailable. Please paste PDF text manually.");
-        setMessage("PDF reader unavailable. Please paste PDF text manually.");
-      }
+  function undoAiChanges() {
+    const previous = workingResume.versionSnapshots?.lastAIEnhancedResume;
+    if (!previous) {
+      setMessage("No AI changes are available to undo.");
       return;
     }
-    if (/\.(txt|md|csv)$/i.test(file.name) || file.type.startsWith("text/")) {
-      const text = normalizeUploadedResumeText(await file.text());
-      setImportText(text);
-      setUploadInfo({ name: file.name, status: "Resume text loaded", chars: text.length });
-      setImportError("");
-      setImportStatus("Resume text loaded. Click AI Convert Resume.");
-      setMessage("Resume uploaded. Click AI Convert Resume.");
+    updateResume(previous);
+    setMessage("AI changes restored to the previous approved version.");
+  }
+
+  function previewFit(targetPages) {
+    const next = updateDocumentSettings(workingResume, { resumeLength: targetPages, settingsConfirmed: true });
+    const model = getPaginatedDocumentModel(next);
+    if (model.fit) {
+      updateResume(next);
+      setMessage(`Resume now fits within ${targetPages} page${targetPages > 1 ? "s" : ""}.`);
       return;
     }
-    setUploadInfo({ name: file.name, status: "Unsupported file type", chars: 0 });
-    setImportError("Use TXT, MD, CSV, PDF, or paste resume text manually.");
-    setMessage("Use TXT, MD, CSV, PDF, or paste resume text manually.");
-  }
-
-  async function readPdf(file) {
-    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
-    const pdfjsLib = window.pdfjsLib;
-    if (!pdfjsLib) throw new Error("PDF.js unavailable");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-    const doc = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-    const pages = [];
-    for (let pageNum = 1; pageNum <= doc.numPages; pageNum += 1) {
-      const page = await doc.getPage(pageNum);
-      const content = await page.getTextContent();
-      pages.push(rebuildPdfPageText(content.items));
-    }
-    return normalizeUploadedResumeText(pages.join("\n\n"));
-  }
-
-  function rebuildPdfPageText(items = []) {
-    const words = items
-      .map((item) => ({
-        text: String(item.str || "").trim(),
-        x: Number(item.transform?.[4] || 0),
-        y: Number(item.transform?.[5] || 0),
-      }))
-      .filter((item) => item.text);
-    const rows = [];
-    words
-      .sort((a, b) => (Math.abs(b.y - a.y) > 2.5 ? b.y - a.y : a.x - b.x))
-      .forEach((word) => {
-        const row = rows[rows.length - 1];
-        if (!row || Math.abs(row.y - word.y) > 2.5) {
-          rows.push({ y: word.y, items: [word] });
-          return;
-        }
-        row.items.push(word);
-      });
-    return rows
-      .map((row) => row.items.sort((a, b) => a.x - b.x).map((item) => item.text).join(" ").replace(/[ \t]{2,}/g, " ").trim())
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  function normalizeUploadedResumeText(value) {
-    const headings = [
-      "Achievements and Certifications",
-      "Licences and Certifications",
-      "Licenses and Certifications",
-      "Professional Experience",
-      "Professional Summary",
-      "Employment History",
-      "Employment Histor",
-      "Project Experience",
-      "Technical Skills",
-      "Work Experience",
-      "Career History",
-      "Work History",
-      "Certifications",
-      "Achievements",
-      "Experience",
-      "Education",
-      "Projects",
-      "Summary",
-      "Licences",
-      "Licenses",
-      "Profile",
-      "Skills",
-    ];
-    let text = String(value || "")
-      .replace(/\r\n?/g, "\n")
-      .replace(/\u00a0/g, " ")
-      .replace(/[\u2022\u25cf\u25aa]/g, "\n- ")
-      .replace(/[\u2013\u2014]/g, "-")
-      .replace(/\s+-\s+(?=\b(?:Developed|Built|Created|Implemented|Optimized|Improved|Integrated|Managed|Led|Delivered|Configured|Designed|Supported|Maintained|Prepared|Assisted|Coordinated|Performed|Engineered|Enhanced)\b)/gi, "\n- ");
-    const upperHeadingPattern = headings.map((heading) => heading.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-    text = text.replace(new RegExp(`\\s+(${upperHeadingPattern})(?=\\s|:|$)`, "g"), "\n$1");
-    headings.forEach((heading) => {
-      const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const longerHeadingGuard = /^(Achievements|Licences|Licenses)$/i.test(heading) ? "(?!\\s+and\\s+certifications\\b)" : "";
-      text = text.replace(new RegExp(`(^|\\n)(${escaped})${longerHeadingGuard}\\s*[:\\-]?\\s+`, "gi"), "$1$2\n");
+    setFitPreview({
+      targetPages,
+      suggestions: model.fitSuggestions,
     });
-    const monthPattern = "(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)";
-    text = text.replace(new RegExp(`\\.\\s+(?=[A-Z][A-Za-z0-9&/ .'\\-]{2,90}(?:Website|App|Application|System|Platform|Estate|E-State|Portfolio|Full Stack)[^\\n]{0,160}\\b${monthPattern}?\\s*(?:19|20)\\d{2}\\s*(?:-|to))`, "g"), ".\n");
-    text = text.replace(new RegExp(`(?<!Computer)(?<!Science)(?<!Engineering)(?<!Application)\\s+(?=[A-Z][A-Za-z.&'\\-]+(?:\\s+[A-Z][A-Za-z.&'\\-]+){0,3}\\s+(?:University|College|Institute|School)\\b\\s*\\(${monthPattern}?\\s*(?:19|20)\\d{2})`, "g"), "\n");
-    return text
-      .split("\n")
-      .map((line) => line.replace(/[ \t]{2,}/g, " ").trim())
-      .filter(Boolean)
-      .join("\n")
-      .trim();
+    setMessage("Content does not fit yet. Review fit suggestions before applying content changes.");
+  }
+
+  function applySuggestedFit() {
+    if (!fitPreview) return;
+    let next = updateDocumentSettings(workingResume, { resumeLength: fitPreview.targetPages, settingsConfirmed: true });
+    next = applyFitSuggestions(next, selectedFitIds);
+    updateResume(next);
+    setFitPreview(null);
+    const model = getPaginatedDocumentModel(next);
+    setMessage(model.fit ? "Fit suggestions applied." : "Fit suggestions applied, but more reductions are still needed.");
   }
 
   function requirePremium(action) {
-    if (!premium) {
-      setUpgradeOpen(true);
-      setMessage("Upgrade to Premium to unlock resume downloads.");
-      return false;
-    }
     action();
-    return true;
   }
 
   function downloadTxt() {
-    downloadBlob(composeResumeText(cleanResume), "txt", "text/plain;charset=utf-8");
+    requirePremium(() => {
+      const blob = new Blob([buildTxtExport(workingResume)], { type: "text/plain;charset=utf-8" });
+      downloadFile(blob, getDownloadBaseName(workingResume, "txt"));
+      setMessage("TXT export downloaded.");
+    });
   }
 
-  function downloadDoc() {
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(cleanResume.name || "Resume")}</title></head><body>${resumeHtml(cleanResume)}</body></html>`;
-    downloadBlob(html, "doc", "application/msword;charset=utf-8");
+  async function downloadDocx() {
+    requirePremium(async () => {
+      const blob = buildDocxFromCanonical(workingResume);
+      const formData = new FormData();
+      formData.append("file", new File([blob], "resume.docx", { type: blob.type }));
+      formData.append("expected", JSON.stringify(expectedVisibleStrings(workingResume)));
+      const response = await fetch("/api/resume/validate-docx", { method: "POST", body: formData });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok === false) {
+        setMessage(payload.error || payload.errors?.[0] || "DOCX validation failed.");
+        return;
+      }
+      downloadFile(blob, getDownloadBaseName(workingResume, "docx"));
+      setMessage("Word document downloaded.");
+    });
   }
 
   async function downloadPdf() {
-    try {
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ unit: "pt", format: "a4" });
-      const margin = 36;
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const contentWidth = pageWidth - margin * 2;
-      let y = 45;
-
-      const SIZES = {
-        NAME: 24,
-        CONTACT: 9,
-        SECTION: 12.2,
-        ENTRY_TITLE: 10.8,
-        TEXT: 9.4,
-        LINE_HEIGHT: 1.24,
-      };
-
-      const setFont = (style = "normal", size = SIZES.TEXT, color = "#111111") => {
-        doc.setFont("times", style);
-        doc.setFontSize(size);
-        doc.setTextColor(color);
-      };
-
-      const addText = (text, size = SIZES.TEXT, style = "normal", align = "left", color = "#111111") => {
-        if (!String(text || "").trim()) return;
-        setFont(style, size, color);
-        const lines = doc.splitTextToSize(String(text || ""), contentWidth);
-        if (align === "center") {
-          doc.text(lines, pageWidth / 2, y, { align: "center" });
-        } else if (align === "right") {
-          doc.text(lines, pageWidth - margin, y, { align: "right" });
-        } else {
-          doc.text(lines, margin, y);
-        }
-        y += lines.length * size * SIZES.LINE_HEIGHT + size * 0.16;
-      };
-
-      const addRow = (left, right = "", options = {}) => {
-        const leftText = String(left || "").trim();
-        const rightText = String(right || "").trim();
-        if (!leftText && !rightText) return;
-        const size = options.size || SIZES.ENTRY_TITLE;
-        const leftStyle = options.leftStyle || "bold";
-        const rightStyle = options.rightStyle || "normal";
-        setFont(rightStyle, size);
-        const rightWidth = rightText ? doc.getTextWidth(rightText) : 0;
-        const leftMaxWidth = rightText ? contentWidth - rightWidth - 18 : contentWidth;
-        const lines = doc.splitTextToSize(leftText || " ", Math.max(190, leftMaxWidth));
-        lines.forEach((line, index) => {
-          setFont(leftStyle, size);
-          doc.text(line, margin, y);
-          if (index === 0 && rightText) {
-            setFont(rightStyle, Math.max(8.8, size - 0.2), "#222222");
-            doc.text(rightText, pageWidth - margin, y, { align: "right" });
-          }
-          y += size * (options.lineHeight || 1.15);
+    requirePremium(async () => {
+      try {
+        const response = await fetch("/api/resume/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resume: workingResume }),
         });
-        y += options.after || 0;
-      };
-
-      const addSection = (title) => {
-        y += 15;
-        setFont("bold", SIZES.SECTION);
-        doc.text(title.toUpperCase(), margin, y);
-        y += 3.8;
-        doc.setDrawColor(34, 34, 34);
-        doc.setLineWidth(0.35);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 14;
-      };
-
-      const drawContactIcon = (type, x, baselineY, iconSize = 8.2) => {
-        const top = baselineY - iconSize + 1.1;
-        const unit = iconSize / 24;
-        const px = (value) => x + value * unit;
-        const py = (value) => top + value * unit;
-        doc.setDrawColor(17, 17, 17);
-        doc.setLineWidth(0.8);
-
-        if (type === "phone") {
-          doc.line(px(7), py(5), px(10), py(8));
-          doc.line(px(10), py(8), px(8.4), py(10.2));
-          doc.line(px(8.4), py(10.2), px(13.8), py(15.6));
-          doc.line(px(13.8), py(15.6), px(16), py(14));
-          doc.line(px(16), py(14), px(19), py(17));
-          doc.line(px(19), py(17), px(17.2), py(20));
-          doc.line(px(17.2), py(20), px(14.2), py(19));
-          doc.line(px(14.2), py(19), px(5), py(9.8));
-          doc.line(px(5), py(9.8), px(4), py(6.8));
-          doc.line(px(4), py(6.8), px(7), py(5));
-          return;
-        }
-
-        if (type === "email") {
-          doc.rect(px(3.8), py(6.2), 16.4 * unit, 11.6 * unit);
-          doc.line(px(4.7), py(7.2), px(12), py(12.4));
-          doc.line(px(19.3), py(7.2), px(12), py(12.4));
-          doc.line(px(4.8), py(16.8), px(10), py(12.7));
-          doc.line(px(19.2), py(16.8), px(14), py(12.7));
-          return;
-        }
-
-        if (type === "location") {
-          doc.circle(px(12), py(9.4), 2.1 * unit);
-          doc.line(px(12), py(21), px(7.4), py(13.6));
-          doc.line(px(12), py(21), px(16.6), py(13.6));
-          doc.line(px(7.4), py(13.6), px(6.1), py(9.6));
-          doc.line(px(16.6), py(13.6), px(17.9), py(9.6));
-          return;
-        }
-
-        if (type === "linkedin") {
-          doc.rect(px(4), py(4), 16 * unit, 16 * unit);
-          doc.line(px(8), py(10), px(8), py(17));
-          doc.line(px(11.2), py(10), px(11.2), py(17));
-          doc.line(px(11.2), py(12), px(14.2), py(10));
-          doc.line(px(14.2), py(10), px(16.6), py(12.4));
-          doc.line(px(16.6), py(12.4), px(16.6), py(17));
-          return;
-        }
-
-        doc.circle(px(12), py(12), 7.2 * unit);
-        doc.line(px(8), py(12), px(16), py(12));
-        doc.line(px(12), py(8), px(12), py(16));
-      };
-
-      const addContactRow = () => {
-        const iconSize = 8.2;
-        const iconGap = 3.8;
-        const itemGap = 12;
-        setFont("normal", SIZES.CONTACT, "#333333");
-        const entries = contactItems(cleanResume)
-          .map((item) => ({ ...item, value: String(item.value || "").trim() }))
-          .filter((item) => item.value)
-          .map((item) => ({
-            ...item,
-            width: iconSize + iconGap + doc.getTextWidth(item.value),
-          }));
-        if (!entries.length) return;
-
-        const rows = [];
-        let current = [];
-        let currentWidth = 0;
-        entries.forEach((entry) => {
-          const nextWidth = currentWidth + (current.length ? itemGap : 0) + entry.width;
-          if (current.length && nextWidth > contentWidth) {
-            rows.push({ items: current, width: currentWidth });
-            current = [entry];
-            currentWidth = entry.width;
-          } else {
-            current.push(entry);
-            currentWidth = nextWidth;
+        const payload = response.headers.get("content-type")?.includes("application/json")
+          ? await response.json().catch(() => ({}))
+          : null;
+        if (response.ok) {
+          const serverPdfBlob = await response.blob();
+          const serverBytes = await serverPdfBlob.arrayBuffer();
+          const validation = await validatePdfBytes(serverBytes, Math.max(workingResume.documentSettings.resumeLength, pageModel.pageCount), expectedVisibleStrings(workingResume));
+          if (!validation.ok) {
+            console.warn("PDF validation warnings:", validation.errors);
+            downloadFile(serverPdfBlob, getDownloadBaseName(workingResume, "pdf"));
+            setMessage(validation.errors[0] ? `PDF downloaded with warning: ${validation.errors[0]}` : "PDF export downloaded.");
+            return;
           }
-        });
-        if (current.length) rows.push({ items: current, width: currentWidth });
+          downloadFile(serverPdfBlob, getDownloadBaseName(workingResume, "pdf"));
+          setMessage("PDF export downloaded.");
+          return;
+        }
+        console.warn("Falling back to client PDF export:", payload?.details || payload?.error || "PDF generation failed.");
 
-        rows.slice(0, 2).forEach((row) => {
-          let x = margin + Math.max(0, (contentWidth - row.width) / 2);
-          row.items.forEach((item, index) => {
-            if (index > 0) x += itemGap;
-            drawContactIcon(item.key, x, y, iconSize);
-            setFont("normal", SIZES.CONTACT, "#333333");
-            doc.text(item.value, x + iconSize + iconGap, y);
-            x += item.width;
+        const { jsPDF } = await import("jspdf");
+        const doc = new jsPDF({
+          unit: "pt",
+          format: workingResume.documentSettings.pageSize === "US Letter" ? "letter" : "a4",
+        });
+        const preset = pageModel.typography;
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = mmToPt(preset.marginMm);
+
+        pageModel.pages.forEach((page, pageIndex) => {
+          if (pageIndex > 0) doc.addPage();
+          let y = margin + preset.bodySize * 0.55;
+          page.forEach((item) => {
+            const size = item.type === "name" ? preset.nameSize : item.type === "heading" ? preset.headingSize : preset.bodySize;
+            const lineHeight = size * preset.lineHeight;
+            doc.setFont("helvetica", item.type === "entry-title" || item.type === "heading" || item.type === "name" ? "bold" : "normal");
+            doc.setFontSize(size);
+            if (item.type === "heading") {
+              doc.text(item.text, margin, y);
+              y += size * 0.38;
+              doc.setLineWidth(0.3);
+              doc.line(margin, y, pageWidth - margin, y);
+              y += lineHeight + size * item.after * 0.18;
+              return;
+            }
+            if (item.type === "name") {
+              doc.text(item.text, pageWidth / 2, y, { align: "center" });
+              y += lineHeight + size * item.after * 0.18;
+              return;
+            }
+            if (item.type === "contact") {
+              const contactLines = item.lines?.length ? item.lines : doc.splitTextToSize(item.text, pageWidth - margin * 2);
+              contactLines.forEach((line, lineIndex) => {
+                doc.text(line, pageWidth / 2, y, { align: "center" });
+                if (lineIndex < contactLines.length - 1) y += lineHeight;
+              });
+              y += lineHeight + size * item.after * 0.18;
+              return;
+            }
+            if (item.type === "entry-title") {
+              const { left, right } = splitEntryTitle(item.text);
+              const rightWidth = right ? doc.getTextWidth(right) : 0;
+              const firstLineWidth = Math.max(90, pageWidth - margin * 2 - rightWidth - (preset.entryDateGapPt || 14));
+              const titleLines = doc.splitTextToSize(left, firstLineWidth);
+              const [firstLine, ...restLines] = titleLines;
+              doc.text(firstLine || left, margin, y);
+              if (right) doc.text(right, pageWidth - margin, y, { align: "right" });
+              y += lineHeight;
+              restLines.forEach((line) => {
+                doc.text(line, margin, y);
+                y += lineHeight;
+              });
+              y += size * item.after * 0.18;
+              return;
+            }
+            if (item.type === "bullet") {
+              const bulletX = margin + 2;
+              const bulletIndent = preset.bulletIndentPt || 15;
+              const textX = margin + bulletIndent;
+              const lines = item.lines?.length ? item.lines : doc.splitTextToSize(item.text, pageWidth - margin * 2 - bulletIndent);
+              if (lines.length) {
+                doc.text("•", bulletX, y);
+                doc.text(lines[0], textX, y);
+                for (let index = 1; index < lines.length; index += 1) {
+                  y += size * 1.15;
+                  doc.text(lines[index], textX, y);
+                }
+              }
+              y += size * 1.15 + size * item.after * 0.28;
+              return;
+            }
+            const printableWidth = pageWidth - margin * 2;
+            const lines = item.lines?.length ? item.lines : doc.splitTextToSize(item.text, printableWidth);
+            drawPdfParagraph(doc, lines, margin, y, printableWidth, lineHeight, { justify: item.type === "paragraph" });
+            y += lines.length * lineHeight + size * item.after * 0.18;
           });
-          y += SIZES.CONTACT * 1.35;
+          if (y > pageHeight - margin + 6) {
+            throw new Error("PDF layout exceeded the printable page height.");
+          }
         });
-      };
 
-      const addBullets = (value) => {
-        String(value || "").split("\n").filter(Boolean).forEach((bullet) => {
-          const bLines = doc.splitTextToSize("\u2022 " + bullet.trim(), contentWidth - 12);
-          setFont("normal", SIZES.TEXT);
-          doc.text(bLines, margin + 9, y);
-          y += bLines.length * SIZES.TEXT * SIZES.LINE_HEIGHT;
-        });
-      };
-
-      addText(cleanResume.name || "Your Name", SIZES.NAME, "bold", "center");
-      y -= 4;
-      addContactRow();
-      y += 6;
-
-      if (cleanResume.summary) {
-        addSection("Summary");
-        addText(cleanResume.summary);
+        const pdfBlob = doc.output("blob");
+        const bytes = await pdfBlob.arrayBuffer();
+        const legacyValidation = await validatePdfBytes(bytes, Math.max(workingResume.documentSettings.resumeLength, pageModel.pageCount), expectedVisibleStrings(workingResume));
+        if (!legacyValidation.ok) {
+          console.warn("PDF validation warnings:", legacyValidation.errors);
+          downloadFile(pdfBlob, getDownloadBaseName(workingResume, "pdf"));
+          setMessage(legacyValidation.errors[0] ? `PDF downloaded with warning: ${legacyValidation.errors[0]}` : "PDF export downloaded.");
+          return;
+        }
+        downloadFile(pdfBlob, getDownloadBaseName(workingResume, "pdf"));
+        setMessage("PDF export downloaded.");
+      } catch (error) {
+        setMessage(error.message || "PDF generation failed.");
       }
-
-      if (cleanResume.experience?.length) {
-        addSection("Experience");
-        cleanResume.experience.forEach((exp) => {
-          if (!exp.title && !exp.company) return;
-          addRow(exp.title || "Role", exp.dates, { after: 0.5 });
-          addText(exp.company || "", SIZES.TEXT, "bold");
-          addBullets(exp.bullets);
-          y += 4;
-        });
-      }
-
-      if (cleanResume.projects?.length) {
-        addSection("Projects");
-        cleanResume.projects.forEach((proj) => {
-          if (!proj.title) return;
-          addRow(proj.title || "Project", proj.dates, { after: 0.5 });
-          addText(proj.subtitle || "");
-          addBullets(proj.bullets);
-          y += 4;
-        });
-      }
-
-      if (cleanResume.skills) {
-        addSection("Skills");
-        addText(cleanResume.skills);
-      }
-
-      const certs = [
-        ...(cleanResume.achievements ? cleanResume.achievements.split("\n") : []),
-        ...(cleanResume.certifications || []).map((cert) => [cert.title, cert.issuer, cert.dates].filter(Boolean).join(", ")),
-      ].filter(Boolean);
-
-      if (certs.length) {
-        addSection("Certifications");
-        certs.forEach((cert) => {
-          const lines = doc.splitTextToSize("\u2022 " + cert, contentWidth - 12);
-          setFont("normal", SIZES.TEXT);
-          doc.text(lines, margin + 9, y);
-          y += lines.length * SIZES.TEXT * SIZES.LINE_HEIGHT;
-        });
-      }
-
-      if (cleanResume.education?.length) {
-        addSection("Education");
-        cleanResume.education.forEach((edu) => {
-          const schoolText = [edu.school, edu.dates ? "(" + edu.dates + ")" : ""].filter(Boolean).join(" ");
-          addRow(schoolText, edu.degree || "", { lineHeight: 1.18, rightStyle: "normal" });
-          y += 2;
-        });
-      }
-
-      doc.save(slug(cleanResume.name || "resume") + ".pdf");
-      setMessage("Resume PDF downloaded successfully.");
-    } catch (err) {
-      console.error(err);
-      setMessage("PDF generation failed. Please try again.");
-    }
+    });
   }
 
-  function downloadBlob(content, extension, type) {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${slug(cleanResume.name || "resume")}.${extension}`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
+  const atsLabel = analysis.readinessScore !== null ? `${analysis.readinessScore}/100` : "--";
+  const jobMatchLabel = analysis.jobMatchScore !== null ? `${analysis.jobMatchScore}/100` : "N/A";
 
   return (
     <main className="rover-dashboard old-builder">
       <aside className="rover-sidebar">
         <Link className="brand side-brand" href="/">
           <span>Rx</span>
-          <strong>Resume Builder</strong>
+          <strong>AI Resume Maker</strong>
         </Link>
-        <button className="side-link active" type="button">Resume Builder</button>
+        <button className="side-link active" type="button">AI Resume Maker</button>
         <button className="side-link" type="button" onClick={startNewResume}>Create Resume</button>
         <button className="side-link" type="button" onClick={openUpload}>Upload Resume</button>
+        <button className="side-link" type="button" onClick={undoAiChanges}>Undo AI Changes</button>
         <Link className="side-link" href="/">Home</Link>
-        <p className="side-note">Create, upload, preview, and unlock downloads after payment.</p>
+        <p className="side-note">Canonical resume editing, ATS analysis, A4 preview parity, and validated exports.</p>
       </aside>
 
       <section className="rover-workspace">
         <header className="workspace-headline">
           <div>
             <p className="eyebrow">Current resume</p>
-            <h1>Create or convert an ATS-friendly resume</h1>
+            <h1>Build, tailor, fit, and export a professional ATS-friendly resume</h1>
           </div>
           <div className="actions">
-            <button className="ghost-btn" type="button" onClick={openUpload}>Upload Resume</button>
+            <button className="ghost-btn" type="button" onClick={openUpload}>Upload / Convert</button>
             <button className="primary-btn" type="button" onClick={startNewResume}>Create Resume</button>
           </div>
         </header>
 
         <section className="choice-panel">
-          <button className="choice-card" type="button" onClick={startNewResume}>
-            <span>+</span>
-            <strong>Create resume manually</strong>
-            <small>Start from a clean ATS-ready form.</small>
-          </button>
-          <button className="choice-card accent-card" type="button" onClick={openUpload}>
-            <span>AI</span>
-            <strong>Upload and convert resume</strong>
-            <small>Gemini AI optimizes for 95%+ ATS readiness.</small>
-          </button>
-          <article className="ats-hero-score">
+          <article className="choice-card static-card">
             <span>ATS</span>
-            <strong>{atsScore}</strong>
-            <small>{atsStatus}</small>
+            <strong>ATS Readiness Score</strong>
+            <small>{atsLabel}</small>
+          </article>
+          <article className="choice-card static-card">
+            <span>JD</span>
+            <strong>Job Match Score</strong>
+            <small>{jobMatchLabel}</small>
+          </article>
+          <article className={`ats-hero-score${pageModel.status !== "fit" ? " warning" : ""}`}>
+            <span>Pages</span>
+            <strong>{pageModel.pageCount}</strong>
+            <small>{pageModel.status === "fit" ? `Fits ${workingResume.documentSettings.resumeLength} page limit` : "Content does not fit"}</small>
           </article>
         </section>
 
+        <section ref={settingsRef} className="form-section settings-card">
+          <div className="section-title">
+            <h3>Document Settings</h3>
+            <button className="mini-btn" type="button" onClick={confirmDocumentSettings}>
+              {workingResume.documentSettings.settingsConfirmed ? "Confirmed" : "Confirm Settings"}
+            </button>
+          </div>
+          <div className="two-col">
+            <label className="field">
+              Page Size
+              <select value={workingResume.documentSettings.pageSize} onChange={(e) => updateSettingsField("pageSize", e.target.value)}>
+                <option value="A4">A4</option>
+                <option value="US Letter">US Letter</option>
+              </select>
+            </label>
+            <label className="field">
+              Resume Length
+              <select value={String(workingResume.documentSettings.resumeLength)} onChange={(e) => updateSettingsField("resumeLength", Number(e.target.value))}>
+                <option value="1">1 Page</option>
+                <option value="2">2 Pages</option>
+              </select>
+            </label>
+          </div>
+          <div className="actions settings-actions">
+            <button className="ghost-btn small" type="button" onClick={() => previewFit(1)}>Fit to 1 Page</button>
+            <button className="ghost-btn small" type="button" onClick={() => previewFit(2)}>Fit to 2 Pages</button>
+          </div>
+          {!workingResume.documentSettings.settingsConfirmed ? <p className="notice">Document settings must be confirmed before create, upload, or AI conversion flows.</p> : null}
+        </section>
+
         <section className="builder old-builder-grid">
-          <form className="editor old-editor">
+          <div className="mobile-tabs">
+            <button className={`ghost-btn small ${activeTab === "edit" ? "active" : ""}`} type="button" onClick={() => setActiveTab("edit")}>Edit</button>
+            <button className={`ghost-btn small ${activeTab === "preview" ? "active" : ""}`} type="button" onClick={() => setActiveTab("preview")}>Preview</button>
+          </div>
+
+          <form className={`editor old-editor ${activeTab === "preview" ? "mobile-hidden" : ""}`}>
             <FormSection title="Profile">
-              <label className="field">Name<input value={resume.name || ""} onChange={(e) => updateField("name", e.target.value)} /></label>
-              <label className="field">Target Role<input value={resume.targetRole || ""} onChange={(e) => updateField("targetRole", e.target.value)} /></label>
+              <label className="field">Full Name<input value={workingResume.profile.fullName || ""} onChange={(e) => setProfileField("fullName", e.target.value)} /></label>
+              <label className="field">Target Role<input value={workingResume.targetRole || ""} onChange={(e) => setTargetRoleField(e.target.value)} /></label>
               <div className="two-col">
-                <label className="field">Phone<input value={resume.phone || ""} onChange={(e) => updateField("phone", e.target.value)} /></label>
-                <label className="field">Email<input value={resume.email || ""} onChange={(e) => updateField("email", e.target.value)} /></label>
+                <label className="field">Phone<input value={workingResume.profile.phone || ""} onChange={(e) => setProfileField("phone", e.target.value)} /></label>
+                <label className="field">Email<input value={workingResume.profile.email || ""} onChange={(e) => setProfileField("email", e.target.value)} /></label>
               </div>
-              <label className="field">Location<input value={resume.location || ""} placeholder="Burwood VIC 3125" onChange={(e) => updateField("location", e.target.value)} /></label>
+              <label className="field">Location<input value={workingResume.profile.location || ""} onChange={(e) => setProfileField("location", e.target.value)} /></label>
               <div className="two-col">
-                <label className="field">LinkedIn URL<input value={resume.linkedin || ""} onChange={(e) => updateField("linkedin", e.target.value)} /></label>
-                <label className="field">GitHub URL<input value={resume.github || ""} onChange={(e) => updateField("github", e.target.value)} /></label>
+                <label className="field">LinkedIn URL<input value={workingResume.profile.linkedin || ""} onChange={(e) => setProfileField("linkedin", e.target.value)} /></label>
+                <label className="field">GitHub / Portfolio URL<input value={workingResume.profile.github || ""} onChange={(e) => setProfileField("github", e.target.value)} /></label>
               </div>
             </FormSection>
 
-            <FormSection title="Summary">
-              <label className="field">Professional Summary<textarea rows={5} value={resume.summary || ""} onChange={(e) => updateField("summary", e.target.value)} /></label>
+            <FormSection title="Job Description">
+              <label className="field">Paste Job Description<textarea rows={5} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} placeholder="Paste responsibilities, tools, qualifications, or hiring requirements." /></label>
             </FormSection>
 
-            <ListSection title="Experience" type="experience" items={resume.experience} addItem={addItem} removeItem={removeItem} updateList={updateList} />
-            <ListSection title="Projects" type="projects" items={resume.projects} addItem={addItem} removeItem={removeItem} updateList={updateList} />
-
-            <FormSection title="Skills">
-              <label className="field">Skills<textarea rows={4} value={resume.skills || ""} onChange={(e) => updateField("skills", e.target.value)} /></label>
+            <FormSection title="Section Library">
+              <div className="actions section-add-grid">
+                {["summary", "skills", "experience", "projects", "education", "certifications", "custom"].map((type) => (
+                  <button key={type} className="ghost-btn small" type="button" onClick={() => addNewSection(type)}>
+                    Add {type === "custom" ? "Custom Section" : capitalize(type)}
+                  </button>
+                ))}
+              </div>
             </FormSection>
 
-            <ListSection title="Education" type="education" items={resume.education} addItem={addItem} removeItem={removeItem} updateList={updateList} />
-            <ListSection title="Licences and Certifications" type="certifications" items={resume.certifications} addItem={addItem} removeItem={removeItem} updateList={updateList} />
+            {workingResume.sections.map((section, index) => (
+              <SectionEditor
+                key={section.id}
+                section={section}
+                index={index}
+                onPatch={patchSection}
+                onDelete={handleSectionDelete}
+                onDuplicate={handleSectionDuplicate}
+                onMove={handleSectionMove}
+                onToggleVisibility={toggleSectionVisibility}
+              />
+            ))}
           </form>
 
-          <aside className="preview-wrap">
+          <aside className={`preview-wrap ${activeTab === "edit" ? "mobile-hidden-preview" : ""}`}>
             <div className="preview-head">
-              <strong>ATS Resume Preview</strong>
+              <strong>AI Resume Maker Preview</strong>
               <div className="actions preview-actions">
-                <button className="primary-btn small" type="button" onClick={enhanceResumeContent} disabled={enhanceLoading}>{enhanceLoading ? "Scanning..." : "Enhance ATS"}</button>
+                <button className="primary-btn small" type="button" onClick={enhanceResume} disabled={enhanceLoading}>{enhanceLoading ? "Enhancing..." : "Enhance Resume"}</button>
                 <button className="ghost-btn small" type="button" onClick={downloadTxt}>Download TXT</button>
-                <button className="ghost-btn small" type="button" onClick={downloadDoc}>Download DOC</button>
+                <button className="ghost-btn small" type="button" onClick={downloadDocx}>Download Word (.docx)</button>
                 <button className="primary-btn small" type="button" onClick={downloadPdf}>Download PDF</button>
               </div>
             </div>
-            <div className={`resume-preview-shell${enhanceLoading ? " scanning" : ""}`}>
-              <ResumePreview resume={cleanResume} />
-              {enhanceLoading ? <div className="scan-overlay" aria-live="polite"><span>Scanning ATS score</span></div> : null}
+
+            {pageModel.status !== "fit" ? (
+              <div className="fit-warning-card">
+                <strong>Content does not fit</strong>
+                <p>The preview and export pipeline will not hide or clip overflow. Review Fit Suggestions and apply them explicitly if you want content reductions.</p>
+                <div className="actions">
+                  <button className="ghost-btn small" type="button" onClick={() => previewFit(workingResume.documentSettings.resumeLength)}>Fit Suggestions</button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="resume-preview-shell paged-preview-shell">
+              {pageModel.pages.map((page, pageIndex) => (
+                <article className="paper resume-paper paged-paper" key={`page-${pageIndex}`} style={resumePaperStyle(pageModel)}>
+                  <span className="page-chip">Page {pageIndex + 1}</span>
+                  {page.map((item, itemIndex) => <PreviewBlock key={`${pageIndex}-${itemIndex}`} item={item} />)}
+                </article>
+              ))}
             </div>
+
             <div className="suggestions">
-              <h3>ATS Score Breakdown: {atsScore} {ats.grade ? `- ${ats.grade}` : ""}</h3>
-              {atsLoading ? <p className="notice">Gemini AI is checking resume quality...</p> : null}
-              {atsError ? <p className="notice">Gemini AI score unavailable: {atsError}</p> : null}
+              <h3>ATS Analysis</h3>
+              <p className="notice">ATS Readiness Score: {atsLabel}</p>
+              {analysis.jobMatchScore !== null ? <p className="notice">Job Match Score: {jobMatchLabel}</p> : null}
               <div className="ats-breakdown">
-                {(ats.breakdown || []).map((item) => (
-                  <p key={item.label} className={item.percent >= 75 ? "success" : "notice"}>
+                {(analysis.breakdown || []).map((item) => (
+                  <p key={item.label} className={item.percent >= 80 ? "success" : "notice"}>
                     <strong>{item.label}</strong>
-                    <span>{item.percent}%</span>
+                    <span>{item.points} / {item.max}</span>
                   </p>
                 ))}
               </div>
-              {(ats.notes || []).slice(0, 12).map((note) => <p className="notice" key={note}>Fix: {note}</p>)}
+              {(analysis.issues || []).slice(0, 12).map((issue, index) => (
+                <p className="notice" key={`${issue.type}-${index}`}>{String(issue.type || "Issue")}: {formatIssueMessage(issue.message)}</p>
+              ))}
+              {analysis.matchedKeywords?.length ? <p className="success">Matched: {analysis.matchedKeywords.join(", ")}</p> : null}
+              {analysis.partialKeywords?.length ? <p className="notice">Partial: {analysis.partialKeywords.join(", ")}</p> : null}
+              {analysis.missingKeywords?.length ? <p className="notice">Not Found: {analysis.missingKeywords.join(", ")}</p> : null}
             </div>
+
+            {!premiumUnlocked ? (
+              <div className="popup-card preview-paywall">
+                <span className="plan-pill">Premium required</span>
+                <h2>Unlock downloads</h2>
+                <p>Production exports remain premium-gated. Development and localhost builds can still validate exports for testing.</p>
+                {signedIn ? <PaymentButtons onPaid={() => setPremium(true)} /> : <button className="primary-btn" type="button" onClick={() => setAuthGateOpen(true)}>Login to unlock</button>}
+              </div>
+            ) : null}
           </aside>
         </section>
       </section>
 
       {importOpen ? (
         <UploadModal
-          loading={importLoading}
           importText={importText}
           uploadInfo={uploadInfo}
-          importStatus={importStatus}
+          importLoading={importLoading}
           importError={importError}
           targetRole={uploadTargetRole}
           jobDescription={jobDescription}
           setImportText={setImportText}
-          setUploadInfo={setUploadInfo}
           setTargetRole={setUploadTargetRole}
           setJobDescription={setJobDescription}
+          onClose={() => !importLoading && setImportOpen(false)}
           onFile={handleFile}
-          onClose={() => { if (!importLoading) setImportOpen(false); }}
-          onConvert={() => optimizeFromText()}
+          onConvert={convertImportedResume}
         />
       ) : null}
-      {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} onBuyNow={() => (window.location.href = "/pricing")} />}
-      {authGateOpen && <LoginPromptModal onClose={() => setAuthGateOpen(false)} />}
-      {message && <Toast type={toastType} message={message} onClose={() => setMessage("")} />}
-      <input ref={fileInputRef} className="sr-only" type="file" accept=".txt,.md,.csv,.pdf,text/plain,text/markdown,text/csv,application/pdf" onChange={(e) => handleFile(e.target.files?.[0])} />
+
+      {fitPreview ? (
+        <FitSuggestionModal
+          targetPages={fitPreview.targetPages}
+          suggestions={fitPreview.suggestions}
+          selectedIds={selectedFitIds}
+          setSelectedIds={setSelectedFitIds}
+          onClose={() => setFitPreview(null)}
+          onApply={applySuggestedFit}
+        />
+      ) : null}
+
+      {aiProposal ? (
+        <AiDiffModal
+          proposal={aiProposal}
+          onAccept={acceptAiProposal}
+          onClose={() => setAiProposal(null)}
+        />
+      ) : null}
+
+      {upgradeOpen ? <UpgradeModal onClose={() => setUpgradeOpen(false)} onBuyNow={() => (window.location.href = "/pricing")} /> : null}
+      {authGateOpen ? <LoginPromptModal onClose={() => setAuthGateOpen(false)} /> : null}
+      {message ? <Toast type={toastType} message={message} onClose={() => setMessage("")} /> : null}
+
+      <input ref={fileInputRef} className="sr-only" type="file" accept=".txt,.md,.csv,.pdf,.docx,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => handleFile(e.target.files?.[0])} />
     </main>
   );
 }
 
-function FormSection({ title, children }) {
-  return <section className="form-section"><div className="section-title"><h3>{title}</h3></div>{children}</section>;
-}
-
-function ListSection({ title, type, items, addItem, removeItem, updateList }) {
+function SectionEditor({ section, index, onPatch, onDelete, onDuplicate, onMove, onToggleVisibility }) {
   return (
     <section className="form-section">
       <div className="section-title">
-        <h3>{title}</h3>
-        <button className="mini-btn" type="button" onClick={() => addItem(type)}>Add</button>
-      </div>
-      {items.map((item, index) => (
-        <div className="item-box" key={index}>
-          <button className="remove" type="button" onClick={() => removeItem(type, index)}>x</button>
-          {type === "experience" ? (
-            <>
-              <div className="two-col">
-                <label className="field">Role<input value={item.title || ""} onChange={(e) => updateList(type, index, "title", e.target.value)} /></label>
-                <label className="field">Dates<input value={item.dates || ""} onChange={(e) => updateList(type, index, "dates", e.target.value)} /></label>
-              </div>
-              <label className="field">Company / Location<input value={item.company || ""} onChange={(e) => updateList(type, index, "company", e.target.value)} /></label>
-              <label className="field">Bullets<textarea rows={4} value={item.bullets || ""} onChange={(e) => updateList(type, index, "bullets", e.target.value)} /></label>
-            </>
-          ) : null}
-          {type === "projects" ? (
-            <>
-              <div className="two-col">
-                <label className="field">Project<input value={item.title || ""} onChange={(e) => updateList(type, index, "title", e.target.value)} /></label>
-                <label className="field">Dates<input value={item.dates || ""} onChange={(e) => updateList(type, index, "dates", e.target.value)} /></label>
-              </div>
-              <label className="field">Tech / Link<input value={item.subtitle || ""} onChange={(e) => updateList(type, index, "subtitle", e.target.value)} /></label>
-              <label className="field">Bullets<textarea rows={4} value={item.bullets || ""} onChange={(e) => updateList(type, index, "bullets", e.target.value)} /></label>
-            </>
-          ) : null}
-          {type === "education" ? (
-            <>
-              <label className="field">Degree<input value={item.degree || ""} onChange={(e) => updateList(type, index, "degree", e.target.value)} /></label>
-              <div className="two-col">
-                <label className="field">School<input value={item.school || ""} onChange={(e) => updateList(type, index, "school", e.target.value)} /></label>
-                <label className="field">Dates<input value={item.dates || ""} onChange={(e) => updateList(type, index, "dates", e.target.value)} /></label>
-              </div>
-            </>
-          ) : null}
-          {type === "certifications" ? (
-            <>
-              <label className="field">Certification / Licence<input value={item.title || ""} onChange={(e) => updateList(type, index, "title", e.target.value)} /></label>
-              <div className="two-col">
-                <label className="field">Issuer<input value={item.issuer || ""} onChange={(e) => updateList(type, index, "issuer", e.target.value)} /></label>
-                <label className="field">Dates<input value={item.dates || ""} onChange={(e) => updateList(type, index, "dates", e.target.value)} /></label>
-              </div>
-            </>
-          ) : null}
+        <input className="section-title-input" value={section.title} onChange={(e) => onPatch(section.id, (current) => ({ ...current, title: e.target.value.toUpperCase() }))} />
+        <div className="actions inline-actions">
+          <button className="mini-btn" type="button" onClick={() => onMove(section.id, "up")} disabled={index === 0}>Up</button>
+          <button className="mini-btn" type="button" onClick={() => onMove(section.id, "down")}>Down</button>
+          <button className="mini-btn" type="button" onClick={() => onDuplicate(section.id)}>Duplicate</button>
+          <button className="mini-btn" type="button" onClick={() => onToggleVisibility(section.id)}>{section.visible ? "Hide" : "Show"}</button>
+          <button className="mini-btn danger" type="button" onClick={() => onDelete(section.id)}>Delete</button>
         </div>
-      ))}
+      </div>
+      {section.type === "summary" ? <SummarySectionEditor section={section} onPatch={onPatch} /> : null}
+      {section.type === "skills" ? <SkillsSectionEditor section={section} onPatch={onPatch} /> : null}
+      {section.type !== "summary" && section.type !== "skills" ? <EntrySectionEditor section={section} onPatch={onPatch} /> : null}
     </section>
   );
 }
 
-function UploadModal({ loading, importText, uploadInfo, importStatus, importError, targetRole, jobDescription, setImportText, setUploadInfo, setTargetRole, setJobDescription, onFile, onClose, onConvert }) {
-  const hasText = Boolean(String(importText || "").trim());
-  const canConvert = hasText && !loading;
+function SummarySectionEditor({ section, onPatch }) {
+  return (
+    <label className="field">
+      Summary
+      <textarea rows={5} value={section.content?.text || ""} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, text: e.target.value } }))} />
+    </label>
+  );
+}
+
+function SkillsSectionEditor({ section, onPatch }) {
+  const items = section.content?.items || [];
+  const categories = section.content?.categories || [];
+  return (
+    <>
+      <label className="field">
+        Skills Layout
+        <select value={section.layout || "compact-list"} onChange={(e) => onPatch(section.id, (current) => ({ ...current, layout: e.target.value }))}>
+          <option value="compact-list">Compact List</option>
+          <option value="categorized">Categorized</option>
+        </select>
+      </label>
+      {section.layout !== "categorized" ? (
+        <label className="field">
+          Skills
+          <textarea rows={5} value={items.join(", ")} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, items: normalizeListInput(e.target.value), categories: current.content.categories || [] } }))} />
+        </label>
+      ) : (
+        <>
+          {categories.map((category, index) => (
+            <div className="item-box" key={`${category.name}-${index}`}>
+              <button className="remove" type="button" onClick={() => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: current.content.categories.filter((_, itemIndex) => itemIndex !== index) } }))}>x</button>
+              <label className="field">Category Title<input value={category.name} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: current.content.categories.map((item, itemIndex) => itemIndex === index ? { ...item, name: e.target.value } : item) } }))} /></label>
+              <label className="field">Items<textarea rows={3} value={(category.items || []).join(", ")} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: current.content.categories.map((item, itemIndex) => itemIndex === index ? { ...item, items: normalizeListInput(e.target.value) } : item) } }))} /></label>
+            </div>
+          ))}
+          <button className="mini-btn" type="button" onClick={() => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: [...(current.content.categories || []), { name: "Category", items: [] }] } }))}>Add Category</button>
+        </>
+      )}
+    </>
+  );
+}
+
+function EntrySectionEditor({ section, onPatch }) {
+  const entries = section.content?.entries || [];
+  const paragraphs = section.content?.paragraphs || [];
+  const bullets = section.content?.bullets || [];
+  const supportsMixed = section.type === "custom";
+  return (
+    <>
+      {supportsMixed ? (
+        <label className="field">
+          Content Type
+          <select value={section.contentType || "mixed"} onChange={(e) => onPatch(section.id, (current) => ({ ...current, contentType: e.target.value }))}>
+            <option value="mixed">Mixed Content</option>
+            <option value="paragraph">Paragraph</option>
+            <option value="bullets">Bullet List</option>
+            <option value="entry">Structured Entries</option>
+          </select>
+        </label>
+      ) : null}
+      {(section.contentType === "paragraph" || section.contentType === "mixed") ? (
+        <label className="field">
+          Paragraphs
+          <textarea rows={4} value={paragraphs.join("\n")} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, paragraphs: normalizeTextareaLines(e.target.value) } }))} />
+        </label>
+      ) : null}
+      {(section.contentType === "bullets" || section.contentType === "mixed") ? (
+        <label className="field">
+          Bullets
+          <textarea rows={4} value={bullets.join("\n")} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, bullets: normalizeTextareaLines(e.target.value) } }))} />
+        </label>
+      ) : null}
+      {(section.contentType === "entry" || section.contentType === "mixed" || section.type !== "custom") ? (
+        <>
+          {entries.map((entry, index) => (
+            <div className="item-box" key={entry.id || index}>
+              <button className="remove" type="button" onClick={() => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, entries: current.content.entries.filter((_, itemIndex) => itemIndex !== index) } }))}>x</button>
+              <div className="two-col">
+                <label className="field">Title<input value={entry.title || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { title: e.target.value })} /></label>
+                <label className="field">Date Range<input value={entry.dateRange || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { dateRange: e.target.value })} /></label>
+              </div>
+              <div className="two-col">
+                <label className="field">Organization<input value={entry.organization || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { organization: e.target.value })} /></label>
+                <label className="field">Location / Subtitle<input value={entry.subtitle || entry.location || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { subtitle: e.target.value })} /></label>
+              </div>
+              <label className="field">Description<textarea rows={2} value={entry.description || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { description: e.target.value })} /></label>
+              <label className="field">Bullets<textarea rows={4} value={(entry.bullets || []).join("\n")} onChange={(e) => patchEntry(onPatch, section.id, index, { bullets: normalizeTextareaLines(e.target.value) })} /></label>
+            </div>
+          ))}
+          <button className="mini-btn" type="button" onClick={() => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, entries: [...(current.content.entries || []), createEntry(section.type)] } }))}>Add Entry</button>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function UploadModal({ importText, uploadInfo, importLoading, importError, targetRole, jobDescription, setImportText, setTargetRole, setJobDescription, onClose, onFile, onConvert }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <div className="modal-card upload-modal old-upload-modal">
         <button className="popup-close" type="button" onClick={onClose}>x</button>
-        <p className="eyebrow">AI resume converter</p>
-        <h2>Upload resume for ATS conversion</h2>
-        <p className="muted-small">Upload TXT/PDF or paste content. AI will convert it into Professional Summary, Professional Experience, Skills, Licences and Certifications, and Education.</p>
+        <p className="eyebrow">Resume Import</p>
+        <h2>Upload resume source for conversion</h2>
+        <p className="muted-small">Supported: PDF, DOCX, TXT, MD, and CSV. Raw import text will be preserved for review and recovery.</p>
         <label className="drop">
-          <span>Choose PDF or TXT</span>
-          <input type="file" accept=".txt,.md,.csv,.pdf,text/plain,application/pdf" onChange={(e) => onFile(e.target.files?.[0])} />
+          <span>Choose PDF, DOCX, or TXT</span>
+          <input type="file" accept=".txt,.md,.csv,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => onFile(e.target.files?.[0])} />
         </label>
-        {uploadInfo ? (
-          <div className="upload-status">
-            <strong>{uploadInfo.name}</strong>
-            <span>{uploadInfo.status}{uploadInfo.chars ? ` - ${uploadInfo.chars} characters` : ""}</span>
-          </div>
-        ) : null}
-        <label className="field">Target role<input value={targetRole} placeholder="Construction Labourer" onChange={(e) => setTargetRole(e.target.value)} /></label>
-        <label className="field">Job description or keywords<textarea rows={2} value={jobDescription} placeholder="Paste job description, required skills, or ATS keywords" onChange={(e) => setJobDescription(e.target.value)} /></label>
-        <label className="field">Paste resume text<textarea rows={4} value={importText} placeholder="Paste resume content here" onChange={(e) => { setImportText(e.target.value); setUploadInfo(null); }} /></label>
-        {importStatus || loading ? <div className="convert-status"><strong>{loading ? "AI is converting your resume..." : importStatus}</strong><span>{loading ? "Please wait. Gemini tries first; local ATS fallback runs automatically if needed." : hasText ? `${importText.length} characters ready.` : "Upload or paste resume text."}</span></div> : null}
-        {importError ? <div className="convert-status error"><strong>Conversion issue</strong><span>{importError}</span></div> : null}
+        {uploadInfo ? <div className="upload-status"><strong>{uploadInfo.name}</strong><span>{uploadInfo.status}{uploadInfo.chars ? ` - ${uploadInfo.chars} characters` : ""}</span></div> : null}
+        <label className="field">Target role<input value={targetRole} onChange={(e) => setTargetRole(e.target.value)} /></label>
+        <label className="field">Job description<textarea rows={3} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} /></label>
+        <label className="field">Raw import text<textarea rows={6} value={importText} onChange={(e) => setImportText(e.target.value)} /></label>
+        {importError ? <p className="notice">{importError}</p> : null}
         <div className="modal-actions">
           <button className="ghost-btn" type="button" onClick={onClose}>Cancel</button>
-          <button className="primary-btn" type="button" disabled={!canConvert} onClick={canConvert ? onConvert : undefined}>{loading ? "Converting..." : "AI Convert Resume"}</button>
+          <button className="primary-btn" type="button" onClick={onConvert} disabled={importLoading}>{importLoading ? "Converting..." : "Convert Resume"}</button>
         </div>
       </div>
     </div>
   );
 }
 
-function resumeHasRealContent(resume) {
-  const text = composeResumeText(resume);
-  return Boolean((resume.name || resume.email || resume.phone) && resume.experience?.length && text.length > 100);
-}
-
-function resumeReadyForAiScore(resume) {
-  const text = composeResumeText(resume);
-  return Boolean(text.replace(/Summary|Experience|Projects|Skills|Licences and Certifications|Education/g, "").trim().length > 60);
-}
-
-function normalizeClientAts(value) {
-  if (!value || typeof value !== "object") return { ...pendingAts, status: "AI score unavailable" };
-  return {
-    score: typeof value.score === "number" ? value.score : null,
-    grade: value.grade || "",
-    status: value.status || "",
-    checks: Array.isArray(value.checks) ? value.checks : [],
-    notes: Array.isArray(value.notes) ? value.notes : [],
-    breakdown: Array.isArray(value.breakdown) ? value.breakdown : [],
-  };
-}
-
-function ResumePreview({ resume }) {
+function FitSuggestionModal({ targetPages, suggestions, selectedIds, setSelectedIds, onClose, onApply }) {
   return (
-    <article className="paper resume-paper">
-      <h1>{resume.name || "Your Name"}</h1>
-      <ContactLine resume={resume} />
-      <Section title="Summary"><p>{resume.summary}</p></Section>
-      <Section title="Experience">{resume.experience.map((item, index) => <Entry key={index} item={item} company />)}</Section>
-      <Section title="Projects">{resume.projects.map((item, index) => <Entry key={index} item={item} />)}</Section>
-      <Section title="Skills"><ul className="resume-skills">{resume.skills.split("\n").filter(Boolean).map((line) => <li key={line}>{line}</li>)}</ul></Section>
-      <Section title="Licences and Certifications">
-        <ul className="resume-skills">
-          {resume.achievements ? resume.achievements.split("\n").filter(Boolean).map((item) => <li key={item}>{item}</li>) : null}
-          {(resume.certifications || []).map((item, index) => {
-            const text = [item.title, item.issuer, item.dates].filter(Boolean).join(", ");
-            return text ? <li key={index}>{text}</li> : null;
-          })}
-        </ul>
-      </Section>
-      <Section title="Education">{resume.education.map((item, index) => <EducationEntry key={index} item={item} />)}</Section>
-    </article>
-  );
-}
-
-function ContactLine({ resume }) {
-  const items = contactItems(resume);
-  if (!items.length) return null;
-
-  return (
-    <div className="contact contact-row">
-      {items.map((item) => (
-        <span className="contact-item" key={item.key}>
-          <ContactIcon type={item.key} />
-          {item.href ? (
-            <a href={item.href} {...(item.external ? { target: "_blank", rel: "noreferrer" } : {})}>
-              {item.value}
-            </a>
-          ) : (
-            <span>{item.value}</span>
-          )}
-        </span>
-      ))}
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal-card upload-modal">
+        <button className="popup-close" type="button" onClick={onClose}>x</button>
+        <p className="eyebrow">Fit Suggestions</p>
+        <h2>Fit to {targetPages} page{targetPages > 1 ? "s" : ""}</h2>
+        <p className="muted-small">Formatting-only tightening has already been applied where safe. Select the content changes you want to approve.</p>
+        {suggestions.map((suggestion) => (
+          <label className="fit-suggestion" key={suggestion.id}>
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(suggestion.id)}
+              disabled={suggestion.type === "format-only"}
+              onChange={(e) => setSelectedIds((current) => e.target.checked ? [...current, suggestion.id] : current.filter((item) => item !== suggestion.id))}
+            />
+            <span>
+              <strong>{suggestion.label}</strong>
+              <small>{suggestion.description}</small>
+            </span>
+          </label>
+        ))}
+        <div className="modal-actions">
+          <button className="ghost-btn" type="button" onClick={onClose}>Cancel</button>
+          <button className="primary-btn" type="button" onClick={onApply}>Apply Suggestions</button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function ContactIcon({ type }) {
-  const icons = {
-    phone: (
-      <>
-        <path d="M6.7 4.8 8.4 8c.3.5.2 1.1-.2 1.5l-.9.9a12 12 0 0 0 6.3 6.3l.9-.9c.4-.4 1-.5 1.5-.2l3.2 1.7c.6.3.9 1 .7 1.6l-.7 2c-.2.6-.8 1-1.4 1A15.7 15.7 0 0 1 2.1 6.2c0-.6.4-1.2 1-1.4l2-.7c.6-.2 1.3.1 1.6.7Z" />
-      </>
-    ),
-    email: (
-      <>
-        <rect x="3.5" y="5.8" width="17" height="12.4" rx="1.8" />
-        <path d="m4.5 7 7.5 5.5L19.5 7" />
-      </>
-    ),
-    location: (
-      <>
-        <path d="M12 21s6-6.2 6-11.2A6 6 0 0 0 6 9.8C6 14.8 12 21 12 21Z" />
-        <circle cx="12" cy="9.8" r="2.1" />
-      </>
-    ),
-    linkedin: (
-      <>
-        <rect x="3.5" y="3.5" width="17" height="17" rx="2.2" />
-        <path d="M8 10v6.2" />
-        <path d="M8 7.8v.1" />
-        <path d="M11.3 16.2v-3.5c0-1.6.9-2.7 2.4-2.7s2.3 1 2.3 2.7v3.5" />
-        <path d="M11.3 10.2v6" />
-      </>
-    ),
-    github: (
-      <>
-        <path d="M12 3.5a8.5 8.5 0 0 0-2.7 16.6c.4.1.5-.2.5-.4v-1.5c-2.2.5-2.7-.9-2.7-.9-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.2-.1-.2-.4-1.1.1-2.2 0 0 .7-.2 2.3.8.7-.2 1.4-.3 2.1-.3s1.4.1 2.1.3c1.6-1 2.3-.8 2.3-.8.5 1.1.2 2 .1 2.2.5.6.8 1.3.8 2.2 0 3.1-1.9 3.8-3.7 4 .3.3.6.8.6 1.6v2.3c0 .2.1.5.5.4A8.5 8.5 0 0 0 12 3.5Z" />
-      </>
-    ),
-  };
-
+function AiDiffModal({ proposal, onAccept, onClose }) {
   return (
-    <svg className="contact-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      {icons[type]}
-    </svg>
-  );
-}
-
-function Section({ title, children }) {
-  return <><h2>{title}</h2>{children}</>;
-}
-
-function Entry({ item, company = false }) {
-  return (
-    <div>
-      <div className="resume-row"><strong>{item.title}</strong><strong>{item.dates}</strong></div>
-      <p>{company ? item.company : item.subtitle}</p>
-      {item.bullets ? <ul>{item.bullets.split("\n").filter(Boolean).map((line) => <li key={line}>{line}</li>)}</ul> : null}
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal-card upload-modal">
+        <button className="popup-close" type="button" onClick={onClose}>x</button>
+        <p className="eyebrow">AI Change Review</p>
+        <h2>Review AI enhancements before applying</h2>
+        <p className="muted-small">ATS Readiness Score: {proposal.beforeScore}/100 {"->"} {proposal.afterScore}/100</p>
+        <div className="diff-list">
+          {proposal.diff.map((change) => (
+            <article className="diff-card" key={change.id}>
+              <strong>{change.title}</strong>
+              <label className="field">Before<textarea rows={4} readOnly value={change.before} /></label>
+              <label className="field">After<textarea rows={4} readOnly value={change.after} /></label>
+            </article>
+          ))}
+        </div>
+        <div className="modal-actions">
+          <button className="ghost-btn" type="button" onClick={onClose}>Cancel</button>
+          <button className="primary-btn" type="button" onClick={onAccept}>Accept Changes</button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function EducationEntry({ item }) {
-  return <div className="resume-row education-row"><strong>{[item.school, item.dates ? `(${item.dates})` : ""].filter(Boolean).join(" ")}</strong><strong>{item.degree}</strong></div>;
+function PreviewBlock({ item }) {
+  if (item.type === "name") return <h1>{item.text}</h1>;
+  if (item.type === "heading") return <h2>{item.text}</h2>;
+  if (item.type === "entry-title") {
+    const { left, right } = splitEntryTitle(item.text);
+    return (
+      <div className="resume-row">
+        <strong>{left}</strong>
+        {right ? <strong className="resume-row-date">{right}</strong> : null}
+      </div>
+    );
+  }
+  if (item.type === "entry-meta") return <p className="resume-meta">{item.text}</p>;
+  if (item.type === "bullet") return <ul className="resume-bullet-list"><li>{item.text}</li></ul>;
+  if (item.type === "contact") return <p className="contact-preview">{item.text}</p>;
+  return <p>{item.text}</p>;
+}
+
+function FormSection({ title, children }) {
+  return <section className="form-section"><div className="section-title"><h3>{title}</h3></div>{children}</section>;
 }
 
 function LoginPromptModal({ onClose }) {
@@ -1028,8 +947,8 @@ function LoginPromptModal({ onClose }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <div className="popup-card">
         <span className="plan-pill">Login Required</span>
-        <h2>AI features locked</h2>
-        <p>Please login or sign up to use Gemini AI for resume conversion and ATS optimization.</p>
+        <h2>AI actions require an account</h2>
+        <p>Please login or sign up to use AI resume conversion and enhancement features.</p>
         <div className="popup-actions">
           <Link href="/sign-up" className="primary-btn">Sign Up</Link>
           <button className="ghost-btn" type="button" onClick={onClose}>Maybe Later</button>
@@ -1044,8 +963,8 @@ function UpgradeModal({ onClose, onBuyNow }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <div className="popup-card">
         <span className="plan-pill">Premium required</span>
-        <h2>Unlock downloads</h2>
-        <p>Preview is free. Pay once to unlock PDF, DOC, and TXT downloads.</p>
+        <h2>Unlock production downloads</h2>
+        <p>Production PDF, Word, and TXT downloads stay premium-gated. Local testing remains available without repeated live payments.</p>
         <div className="popup-actions">
           <button className="primary-btn" type="button" onClick={onBuyNow}>Buy Now</button>
           <button className="ghost-btn" type="button" onClick={onClose}>Not Now</button>
@@ -1059,76 +978,253 @@ function Toast({ type, message, onClose }) {
   return <div className={`toast ${type}`} role="status"><span>{type === "success" ? "Success" : "Notice"}</span><p>{message}</p><button type="button" onClick={onClose}>x</button></div>;
 }
 
-function resumeHtml(resume) {
-  return `<main class="paper">${documentLikeResume(resume)}</main>`;
+function patchEntry(onPatch, sectionId, index, patch) {
+  onPatch(sectionId, (current) => ({
+    ...current,
+    content: {
+      ...current.content,
+      entries: current.content.entries.map((entry, entryIndex) => entryIndex === index ? { ...entry, ...patch } : entry),
+    },
+  }));
 }
 
-function documentLikeResume(resume) {
-  const bullets = (value) => value ? `<ul>${value.split("\n").filter(Boolean).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>` : "";
-  return `
-    <h1>${escapeHtml(resume.name || "Your Name")}</h1>
-    ${contactHtml(resume)}
-    <h2>Summary</h2><p>${escapeHtml(resume.summary)}</p>
-    <h2>Experience</h2>${resume.experience.map((item) => `<div class="resume-row"><strong>${escapeHtml(item.title)}</strong><strong>${escapeHtml(item.dates)}</strong></div><p>${escapeHtml(item.company)}</p>${bullets(item.bullets)}`).join("")}
-    <h2>Projects</h2>${resume.projects.map((item) => `<div class="resume-row"><strong>${escapeHtml(item.title)}</strong><strong>${escapeHtml(item.dates)}</strong></div><p>${escapeHtml(item.subtitle)}</p>${bullets(item.bullets)}`).join("")}
-    <h2>Skills</h2>${bullets(resume.skills)}
-    <h2>Licences and Certifications</h2><ul>${resume.achievements ? resume.achievements.split("\n").filter(Boolean).map((line) => `<li>${escapeHtml(line)}</li>`).join("") : ""}${(resume.certifications || []).map((item) => { const text = [item.title, item.issuer, item.dates].filter(Boolean).join(", "); return text ? `<li>${escapeHtml(text)}</li>` : ""; }).join("")}</ul>
-    <h2>Education</h2>${resume.education.map((item) => `<div class="resume-row"><strong>${escapeHtml(item.school)}</strong><strong>${escapeHtml(item.degree)}</strong></div><p>${escapeHtml(item.dates)}</p>`).join("")}
-  `;
+function createEntry(type) {
+  if (type === "education") return { id: createLocalId(), title: "", organization: "", dateRange: "", bullets: [], description: "" };
+  return { id: createLocalId(), title: "", organization: "", subtitle: "", location: "", dateRange: "", bullets: [], description: "", url: "" };
 }
 
-
-function contactItems(resume) {
-  return [
-    resume.phone ? { key: "phone", value: resume.phone, href: `tel:${String(resume.phone).replace(/[^\d+]/g, "")}` } : null,
-    resume.email ? { key: "email", value: resume.email, href: `mailto:${resume.email}` } : null,
-    resume.location ? { key: "location", value: resume.location } : null,
-    resume.linkedin ? { key: "linkedin", value: "LinkedIn", href: normalizeExternalUrl(resume.linkedin), external: true } : null,
-    resume.github ? { key: "github", value: "GitHub", href: normalizeExternalUrl(resume.github), external: true } : null,
-  ].filter(Boolean);
+function normalizeListInput(value) {
+  return String(value || "")
+    .split(/\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
-function contactHtml(resume) {
-  const items = contactItems(resume);
-  if (!items.length) return "";
-  return `<div class="contact">${items.map((item) => {
-    const content = `${contactSvg(item.key)}${item.href ? `<a href="${escapeHtml(item.href)}">${escapeHtml(item.value)}</a>` : `<span>${escapeHtml(item.value)}</span>`}`;
-    return `<span class="contact-item">${content}</span>`;
-  }).join("")}</div>`;
+function normalizeTextareaLines(value) {
+  return String(value || "")
+    .split("\n")
+    .map((item) => item.replace(/^[•*-]\s*/, "").trim())
+    .filter(Boolean);
 }
 
-function contactSvg(type) {
-  const icons = {
-    phone: '<path d="M6.7 4.8 8.4 8c.3.5.2 1.1-.2 1.5l-.9.9a12 12 0 0 0 6.3 6.3l.9-.9c.4-.4 1-.5 1.5-.2l3.2 1.7c.6.3.9 1 .7 1.6l-.7 2c-.2.6-.8 1-1.4 1A15.7 15.7 0 0 1 2.1 6.2c0-.6.4-1.2 1-1.4l2-.7c.6-.2 1.3.1 1.6.7Z"/>',
-    email: '<rect x="3.5" y="5.8" width="17" height="12.4" rx="1.8"/><path d="m4.5 7 7.5 5.5L19.5 7"/>',
-    location: '<path d="M12 21s6-6.2 6-11.2A6 6 0 0 0 6 9.8C6 14.8 12 21 12 21Z"/><circle cx="12" cy="9.8" r="2.1"/>',
-    linkedin: '<rect x="3.5" y="3.5" width="17" height="17" rx="2.2"/><path d="M8 10v6.2"/><path d="M8 7.8v.1"/><path d="M11.3 16.2v-3.5c0-1.6.9-2.7 2.4-2.7s2.3 1 2.3 2.7v3.5"/><path d="M11.3 10.2v6"/>',
-    github: '<path d="M12 3.5a8.5 8.5 0 0 0-2.7 16.6c.4.1.5-.2.5-.4v-1.5c-2.2.5-2.7-.9-2.7-.9-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.2-.1-.2-.4-1.1.1-2.2 0 0 .7-.2 2.3.8.7-.2 1.4-.3 2.1-.3s1.4.1 2.1.3c1.6-1 2.3-.8 2.3-.8.5 1.1.2 2 .1 2.2.5.6.8 1.3.8 2.2 0 3.1-1.9 3.8-3.7 4 .3.3.6.8.6 1.6v2.3c0 .2.1.5.5.4A8.5 8.5 0 0 0 12 3.5Z"/>',
-  };
-  return `<svg class="contact-icon" viewBox="0 0 24 24" aria-hidden="true">${icons[type] || ""}</svg>`;
+function createLocalId() {
+  return Math.random().toString(36).slice(2, 10);
 }
 
-function normalizeExternalUrl(value) {
-  const url = String(value || "").trim();
-  if (!url) return "";
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+function capitalize(value) {
+  return String(value || "").charAt(0).toUpperCase() + String(value || "").slice(1);
 }
 
-function escapeHtml(value) {
-  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function loadInitialResume() {
+  if (typeof window === "undefined") return ensureCanonicalResume(createDefaultWorkingResume());
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!stored) return ensureCanonicalResume(createDefaultWorkingResume());
+    return ensureCanonicalResume(JSON.parse(stored));
+  } catch {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+      LEGACY_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+    } catch {}
+    return ensureCanonicalResume(createDefaultWorkingResume());
+  }
 }
 
-function slug(value) {
-  return String(value || "resume").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "resume";
+async function readPdf(file) {
+  const pdfjsLib = await loadPdfJs();
+  const doc = await pdfjsLib.getDocument({ data: await file.arrayBuffer(), disableWorker: true }).promise;
+  const pages = [];
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum += 1) {
+    const page = await doc.getPage(pageNum);
+    const content = await page.getTextContent();
+    pages.push(
+      content.items
+        .map((item) => String(item.str || "").trim())
+        .filter(Boolean)
+        .join(" "),
+    );
+  }
+  return normalizeUploadedResumeText(pages.join("\n\n"));
 }
 
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const script = document.createElement("script");
-    script.src = src;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.body.appendChild(script);
+function normalizeUploadedResumeText(value) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2022\u25cf\u25aa]/g, "\n- ")
+    .replace(/[\u2013\u2014]/g, "-")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]{2,}/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function downloadFile(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+    link.remove();
+  }, 1000);
+}
+
+function getDownloadBaseName(resume, extension) {
+  const fullName = String(resume.profile?.fullName || "resume").trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const role = String(resume.targetRole || "").trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const base = [fullName, role, "Resume"].filter(Boolean).join("_") || "Resume";
+  return `${base}.${extension}`;
+}
+
+async function validatePdfBytes(bytes, allowedPages, expectedStrings) {
+  const pdfjsLib = await loadPdfJs();
+  const doc = await pdfjsLib.getDocument({ data: bytes, disableWorker: true }).promise;
+  const errors = [];
+  if (allowedPages === 1 && doc.numPages !== 1) errors.push("PDF must be exactly 1 page.");
+  if (allowedPages === 2 && doc.numPages > 2) errors.push("PDF exceeds the 2-page limit.");
+  const pageTexts = [];
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum += 1) {
+    const page = await doc.getPage(pageNum);
+    const content = await page.getTextContent();
+    pageTexts.push(content.items.map((item) => String(item.str || "").trim()).filter(Boolean).join(" "));
+  }
+  const joined = normalizeValidationText(pageTexts.join(" "));
+  const headingCounts = new Map();
+  expectedStrings
+    .filter((value, index) => index > 0 && /^[A-Z][A-Z &/()-]+$/.test(String(value || "").trim()))
+    .forEach((heading) => {
+      const normalizedHeading = normalizeValidationText(heading);
+      if (!normalizedHeading) return;
+      const matches = joined.match(new RegExp(escapeRegExp(normalizedHeading), "g")) || [];
+      headingCounts.set(heading, matches.length);
+    });
+  expectedStrings.slice(0, 10).forEach((value) => {
+    const needle = normalizeValidationText(value);
+    if (needle && needle.length > 2 && !joined.includes(needle.slice(0, Math.min(needle.length, 40)))) {
+      errors.push(`Missing expected PDF text: ${value}`);
+    }
   });
+  headingCounts.forEach((count, heading) => {
+    if (count > 1) errors.push(`Duplicated PDF heading detected: ${heading}`);
+  });
+  if (pageTexts.some((text) => !text.trim())) errors.push("Unexpected blank PDF page detected.");
+  return { ok: errors.length === 0, errors };
+}
+
+function mmToPt(mm) {
+  return Math.round(mm * 2.83465 * 100) / 100;
+}
+
+function normalizeValidationText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\|\|/g, " ")
+    .replace(/\|/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatIssueMessage(value) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    if (typeof value.message === "string") return value.message;
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "Issue detected.";
+    }
+  }
+  return String(value || "Issue detected.");
+}
+
+function splitEntryTitle(value) {
+  const [left, right] = String(value || "").split(" || ").map((item) => String(item || "").trim());
+  return { left, right };
+}
+
+function resumePaperStyle(pageModel) {
+  const preset = pageModel.typography || {};
+  return {
+    "--resume-font-family": RESUME_FONT_STACK,
+    "--resume-page-width": `${pageModel.pageSize === "US Letter" ? 816 : 794}px`,
+    "--resume-page-min-height": `${pageModel.pageSize === "US Letter" ? 1056 : 1122}px`,
+    "--resume-padding": `${Math.round(mmToPt(preset.marginMm || 14))}px`,
+    "--resume-name-size": `${preset.nameSize || 19.2}pt`,
+    "--resume-heading-size": `${preset.headingSize || 11}pt`,
+    "--resume-body-size": `${preset.bodySize || 9.8}pt`,
+    "--resume-line-height": String(preset.lineHeight || 1.16),
+    "--resume-heading-gap": `${Math.max(10, Math.round((preset.headingSpacing || 0.9) * 12))}px`,
+    "--resume-paragraph-gap": `${Math.max(4, Math.round((preset.paragraphSpacing || 0.42) * 10))}px`,
+    "--resume-bullet-gap": `${Math.max(2, Math.round((preset.bulletSpacing || 0.32) * 8))}px`,
+    "--resume-section-gap": `${Math.max(8, Math.round((preset.sectionSpacing || 0.92) * 12))}px`,
+    "--resume-bullet-indent": `${Math.round(preset.bulletIndentPt || 15)}pt`,
+  };
+}
+
+function drawPdfParagraph(doc, lines, x, y, width, lineHeight, options = {}) {
+  const renderedLines = Array.isArray(lines) ? lines.filter(Boolean) : [];
+  renderedLines.forEach((line, index) => {
+    const isLast = index === renderedLines.length - 1;
+    if (options.justify && !isLast && shouldJustifyLine(doc, line, width)) {
+      drawJustifiedLine(doc, line, x, y + index * lineHeight, width);
+    } else {
+      doc.text(line, x, y + index * lineHeight);
+    }
+  });
+}
+
+function shouldJustifyLine(doc, line, width) {
+  const words = String(line || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 4) return false;
+  const lineWidth = doc.getTextWidth(line);
+  if (lineWidth >= width * 0.97) return false;
+  const extraPerGap = (width - lineWidth) / Math.max(1, words.length - 1);
+  return extraPerGap <= doc.getFontSize() * 0.65;
+}
+
+function drawJustifiedLine(doc, line, x, y, width) {
+  const words = String(line || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) {
+    doc.text(line, x, y);
+    return;
+  }
+  const wordWidths = words.map((word) => doc.getTextWidth(word));
+  const textWidth = wordWidths.reduce((sum, value) => sum + value, 0);
+  const gap = (width - textWidth) / (words.length - 1);
+  let cursorX = x;
+  words.forEach((word, index) => {
+    doc.text(word, cursorX, y);
+    cursorX += wordWidths[index] + (index < words.length - 1 ? gap : 0);
+  });
+}
+
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+let pdfJsPromise = null;
+
+async function loadPdfJs() {
+  if (!pdfJsPromise) {
+    pdfJsPromise = import("pdfjs-dist/legacy/build/pdf.mjs")
+      .then((module) => {
+        const pdfjsLib = module?.default || module;
+        if (pdfjsLib?.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+            "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+            import.meta.url,
+          ).toString();
+        }
+        return pdfjsLib;
+      })
+      .catch((error) => {
+        pdfJsPromise = null;
+        throw new Error(error?.message || "PDF parser unavailable.");
+      });
+  }
+  return pdfJsPromise;
 }

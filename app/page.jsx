@@ -33,27 +33,26 @@ export default function HomePage() {
             <i style={{ "--line-width": "82%" }} />
           </div>
           <div className="hero-mock hero-mock-score">
-            <strong>100</strong>
-            <span>ATS Score</span>
+            <strong>AI</strong>
+            <span>ATS Review</span>
             <i style={{ "--line-width": "43%" }} />
             <i style={{ "--line-width": "64%" }} />
             <i style={{ "--line-width": "84%" }} />
             <i style={{ "--line-width": "54%" }} />
           </div>
         </div>
-        <p className="eyebrow">AI-STYLE ATS RESUME CONVERTER</p>
+        <p className="eyebrow">AI RESUME MAKER</p>
         <h1>
-          <span>Create a resume or upload one</span>
-          <span>and convert it into a clean ATS format.</span>
+          <span>Create, import, and refine your resume</span>
+          <span>with an ATS-focused AI workflow.</span>
         </h1>
         <p className="hero-copy">
-          The builder rewrites imported content into Professional Summary,
-          Professional Experience, Skills, Licences, and Education with an
-          ATS-focused checklist.
+          Build a clean professional resume, optimize it for a target role,
+          and export matching PDF, Word, and text versions from one editor.
         </p>
         <div className="hero-actions">
           <Link className="primary-btn" href="/career-cockpit">
-            Open Resume Builder
+            Open AI Resume Maker
           </Link>
         </div>
       </main>

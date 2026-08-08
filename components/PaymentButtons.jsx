@@ -33,7 +33,7 @@ export function PaymentButtons({ onPaid }) {
         key: payload.keyId,
         amount: payload.order.amount,
         currency: payload.order.currency,
-        name: "Rover ATS Premium",
+        name: "AI Resume Maker Premium",
         description: "Premium resume downloads",
         order_id: payload.order.id,
         method: {

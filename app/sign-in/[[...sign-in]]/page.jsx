@@ -23,7 +23,7 @@ function AuthUnavailable({ title }) {
         <h1>{title}</h1>
         <p>
           Clerk is not configured yet. Add valid Clerk publishable and secret keys to enable real login before
-          opening Resume Builder.
+          opening AI Resume Maker.
         </p>
       </article>
     </main>
