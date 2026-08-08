@@ -347,14 +347,20 @@ export function ResumeBuilder({ initialPremium = false }) {
   async function downloadDocx() {
     requirePremium(async () => {
       const blob = buildDocxFromCanonical(workingResume);
-      const formData = new FormData();
-      formData.append("file", new File([blob], "resume.docx", { type: blob.type }));
-      formData.append("expected", JSON.stringify(expectedVisibleStrings(workingResume)));
-      const response = await fetch("/api/resume/validate-docx", { method: "POST", body: formData });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || payload.ok === false) {
-        setMessage(payload.error || payload.errors?.[0] || "DOCX validation failed.");
-        return;
+      try {
+        const formData = new FormData();
+        formData.append("file", new File([blob], "resume.docx", { type: blob.type }));
+        formData.append("expected", JSON.stringify(expectedVisibleStrings(workingResume)));
+        const response = await fetch("/api/resume/validate-docx", { method: "POST", body: formData });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.ok === false) {
+          console.warn("DOCX validation warning:", payload.error || payload.errors);
+          downloadFile(blob, getDownloadBaseName(workingResume, "docx"));
+          setMessage(payload.error || payload.errors?.[0] || "Word document downloaded with validation warning.");
+          return;
+        }
+      } catch (error) {
+        console.warn("DOCX validation unavailable:", error);
       }
       downloadFile(blob, getDownloadBaseName(workingResume, "docx"));
       setMessage("Word document downloaded.");
@@ -401,13 +407,13 @@ export function ResumeBuilder({ initialPremium = false }) {
         pageModel.pages.forEach((page, pageIndex) => {
           if (pageIndex > 0) doc.addPage();
           let y = margin + preset.bodySize * 0.55;
-          page.forEach((item) => {
+          page.forEach((item, itemIndex) => {
             const size = item.type === "name" ? preset.nameSize : item.type === "heading" ? preset.headingSize : preset.bodySize;
             const lineHeight = size * preset.lineHeight;
             doc.setFont("helvetica", item.type === "entry-title" || item.type === "heading" || item.type === "name" ? "bold" : "normal");
             doc.setFontSize(size);
             if (item.type === "heading") {
-              doc.text(item.text, margin, y);
+              doc.text(formatResumeHeadingLabel(item.text), margin, y);
               y += size * 0.38;
               doc.setLineWidth(0.3);
               doc.line(margin, y, pageWidth - margin, y);
@@ -420,21 +426,22 @@ export function ResumeBuilder({ initialPremium = false }) {
               return;
             }
             if (item.type === "contact") {
-              const contactLines = item.lines?.length ? item.lines : doc.splitTextToSize(item.text, pageWidth - margin * 2);
-              contactLines.forEach((line, lineIndex) => {
-                doc.text(line, pageWidth / 2, y, { align: "center" });
-                if (lineIndex < contactLines.length - 1) y += lineHeight;
-              });
-              y += lineHeight + size * item.after * 0.18;
+              const consumedHeight = drawPdfContactBlock(doc, item, pageWidth, margin, y, lineHeight);
+              y += consumedHeight + size * item.after * 0.18;
               return;
             }
             if (item.type === "entry-title") {
+              const previousItem = page[itemIndex - 1];
+              if (item.metaLine && previousItem?.type === "entry-title" && previousItem.metaLine === item.metaLine) {
+                return;
+              }
               const { left, right } = splitEntryTitle(item.text);
+              const combinedLeft = [left, item.metaLine].filter(Boolean).join(" | ");
               const rightWidth = right ? doc.getTextWidth(right) : 0;
               const firstLineWidth = Math.max(90, pageWidth - margin * 2 - rightWidth - (preset.entryDateGapPt || 14));
-              const titleLines = doc.splitTextToSize(left, firstLineWidth);
+              const titleLines = doc.splitTextToSize(combinedLeft || left, firstLineWidth);
               const [firstLine, ...restLines] = titleLines;
-              doc.text(firstLine || left, margin, y);
+              doc.text(firstLine || combinedLeft || left, margin, y);
               if (right) doc.text(right, pageWidth - margin, y, { align: "right" });
               y += lineHeight;
               restLines.forEach((line) => {
@@ -442,6 +449,9 @@ export function ResumeBuilder({ initialPremium = false }) {
                 y += lineHeight;
               });
               y += size * item.after * 0.18;
+              return;
+            }
+            if (item.type === "entry-meta" && page[itemIndex - 1]?.type === "entry-title" && page[itemIndex - 1]?.metaLine === item.text) {
               return;
             }
             if (item.type === "bullet") {
@@ -621,7 +631,6 @@ export function ResumeBuilder({ initialPremium = false }) {
                 <button className="primary-btn small" type="button" onClick={enhanceResume} disabled={enhanceLoading}>{enhanceLoading ? "Enhancing..." : "Enhance Resume"}</button>
                 <button className="ghost-btn small" type="button" onClick={downloadTxt}>Download TXT</button>
                 <button className="ghost-btn small" type="button" onClick={downloadDocx}>Download Word (.docx)</button>
-                <button className="primary-btn small" type="button" onClick={downloadPdf}>Download PDF</button>
               </div>
             </div>
 
@@ -639,7 +648,12 @@ export function ResumeBuilder({ initialPremium = false }) {
               {pageModel.pages.map((page, pageIndex) => (
                 <article className="paper resume-paper paged-paper" key={`page-${pageIndex}`} style={resumePaperStyle(pageModel)}>
                   <span className="page-chip">Page {pageIndex + 1}</span>
-                  {page.map((item, itemIndex) => <PreviewBlock key={`${pageIndex}-${itemIndex}`} item={item} />)}
+                  {page.map((item, itemIndex) => {
+                    if (item.type === "entry-meta" && page[itemIndex - 1]?.type === "entry-title" && page[itemIndex - 1]?.metaLine === item.text) {
+                      return null;
+                    }
+                    return <PreviewBlock key={`${pageIndex}-${itemIndex}`} item={item} />;
+                  })}
                 </article>
               ))}
             </div>
@@ -922,12 +936,13 @@ function AiDiffModal({ proposal, onAccept, onClose }) {
 
 function PreviewBlock({ item }) {
   if (item.type === "name") return <h1>{item.text}</h1>;
-  if (item.type === "heading") return <h2>{item.text}</h2>;
+  if (item.type === "heading") return <h2>{formatResumeHeadingLabel(item.text)}</h2>;
   if (item.type === "entry-title") {
     const { left, right } = splitEntryTitle(item.text);
+    const combinedLeft = [left, item.metaLine].filter(Boolean).join(" | ");
     return (
       <div className="resume-row">
-        <strong>{left}</strong>
+        <strong>{combinedLeft || left}</strong>
         {right ? <strong className="resume-row-date">{right}</strong> : null}
       </div>
     );
@@ -1144,6 +1159,65 @@ function formatIssueMessage(value) {
 function splitEntryTitle(value) {
   const [left, right] = String(value || "").split(" || ").map((item) => String(item || "").trim());
   return { left, right };
+}
+
+function formatResumeHeadingLabel(value) {
+  return String(value || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function drawPdfContactBlock(doc, item, pageWidth, margin, y, lineHeight) {
+  const parts = Array.isArray(item.parts) && item.parts.length ? item.parts : String(item.text || "").split("|").map((part) => ({ label: String(part).trim() })).filter((part) => part.label);
+  const maxWidth = pageWidth - margin * 2;
+  const lines = [];
+  let currentLine = [];
+
+  parts.forEach((part) => {
+    const nextLine = [...currentLine, part];
+    if (currentLine.length && measurePdfContactLine(doc, nextLine) > maxWidth) {
+      lines.push(currentLine);
+      currentLine = [part];
+      return;
+    }
+    currentLine = nextLine;
+  });
+  if (currentLine.length) lines.push(currentLine);
+
+  lines.forEach((lineParts, lineIndex) => {
+    drawPdfContactLine(doc, lineParts, pageWidth / 2, y + lineIndex * lineHeight);
+  });
+  return Math.max(1, lines.length) * lineHeight;
+}
+
+function drawPdfContactLine(doc, parts, centerX, y) {
+  const separator = " | ";
+  const totalWidth = parts.reduce((sum, part, index) => {
+    return sum + doc.getTextWidth(part.label) + (index < parts.length - 1 ? doc.getTextWidth(separator) : 0);
+  }, 0);
+  let cursorX = centerX - totalWidth / 2;
+  parts.forEach((part, index) => {
+    if (part.url) {
+      doc.textWithLink(part.label, cursorX, y, { url: part.url });
+    } else {
+      doc.text(part.label, cursorX, y);
+    }
+    cursorX += doc.getTextWidth(part.label);
+    if (index < parts.length - 1) {
+      doc.text(separator, cursorX, y);
+      cursorX += doc.getTextWidth(separator);
+    }
+  });
+}
+
+function measurePdfContactLine(doc, parts) {
+  const separator = " | ";
+  return parts.reduce((sum, part, index) => {
+    return sum + doc.getTextWidth(part.label) + (index < parts.length - 1 ? doc.getTextWidth(separator) : 0);
+  }, 0);
 }
 
 function resumePaperStyle(pageModel) {
