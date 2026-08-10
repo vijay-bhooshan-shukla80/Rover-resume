@@ -739,7 +739,7 @@ function SectionEditor({ section, index, onPatch, onDelete, onDuplicate, onMove,
   return (
     <section className="form-section">
       <div className="section-title">
-        <input className="section-title-input" value={section.title} onChange={(e) => onPatch(section.id, (current) => ({ ...current, title: e.target.value.toUpperCase() }))} />
+        <input className="section-title-input" value={section.title} onChange={(e) => onPatch(section.id, (current) => ({ ...current, title: e.target.value }))} />
         <div className="actions inline-actions">
           <button className="mini-btn" type="button" onClick={() => onMove(section.id, "up")} disabled={index === 0}>Up</button>
           <button className="mini-btn" type="button" onClick={() => onMove(section.id, "down")}>Down</button>
@@ -802,6 +802,7 @@ function EntrySectionEditor({ section, onPatch }) {
   const paragraphs = section.content?.paragraphs || [];
   const bullets = section.content?.bullets || [];
   const supportsMixed = section.type === "custom";
+  const labels = getEntryEditorLabels(section.type);
   return (
     <>
       {supportsMixed ? (
@@ -833,13 +834,16 @@ function EntrySectionEditor({ section, onPatch }) {
             <div className="item-box" key={entry.id || index}>
               <button className="remove" type="button" onClick={() => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, entries: current.content.entries.filter((_, itemIndex) => itemIndex !== index) } }))}>x</button>
               <div className="two-col">
-                <label className="field">Title<input value={entry.title || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { title: e.target.value })} /></label>
+                <label className="field">{labels.title}<input value={entry.title || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { title: e.target.value })} /></label>
                 <label className="field">Date Range<input value={entry.dateRange || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { dateRange: e.target.value })} /></label>
               </div>
               <div className="two-col">
-                <label className="field">Organization<input value={entry.organization || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { organization: e.target.value })} /></label>
-                <label className="field">Location / Subtitle<input value={entry.subtitle || entry.location || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { subtitle: e.target.value })} /></label>
+                <label className="field">{labels.organization}<input value={entry.organization || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { organization: e.target.value })} /></label>
+                <label className="field">{labels.location}<input value={entry.location || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { location: e.target.value })} /></label>
               </div>
+              {labels.subtitle ? (
+                <label className="field">{labels.subtitle}<input value={entry.subtitle || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { subtitle: e.target.value })} /></label>
+              ) : null}
               <label className="field">Description<textarea rows={2} value={entry.description || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { description: e.target.value })} /></label>
               <label className="field">Bullets<textarea rows={4} value={(entry.bullets || []).join("\n")} onChange={(e) => patchEntry(onPatch, section.id, index, { bullets: normalizeTextareaLines(e.target.value) })} /></label>
             </div>
@@ -875,6 +879,47 @@ function UploadModal({ importText, uploadInfo, importLoading, importError, targe
       </div>
     </div>
   );
+}
+
+function getEntryEditorLabels(sectionType) {
+  if (sectionType === "experience") {
+    return {
+      title: "Job Title",
+      organization: "Company",
+      location: "Location",
+      subtitle: null,
+    };
+  }
+  if (sectionType === "projects") {
+    return {
+      title: "Project Title",
+      organization: "Organization",
+      location: "Location",
+      subtitle: "Subtitle / Link",
+    };
+  }
+  if (sectionType === "education") {
+    return {
+      title: "Degree",
+      organization: "School / University",
+      location: "Location",
+      subtitle: null,
+    };
+  }
+  if (sectionType === "certifications") {
+    return {
+      title: "Certification",
+      organization: "Issuer",
+      location: "Location",
+      subtitle: null,
+    };
+  }
+  return {
+    title: "Title",
+    organization: "Organization",
+    location: "Location",
+    subtitle: "Subtitle",
+  };
 }
 
 function FitSuggestionModal({ targetPages, suggestions, selectedIds, setSelectedIds, onClose, onApply }) {
@@ -1162,12 +1207,7 @@ function splitEntryTitle(value) {
 }
 
 function formatResumeHeadingLabel(value) {
-  return String(value || "")
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  return String(value || "");
 }
 
 function drawPdfContactBlock(doc, item, pageWidth, margin, y, lineHeight) {
