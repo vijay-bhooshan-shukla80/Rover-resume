@@ -27,7 +27,7 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="landing-container">
+    <div className="landing-app-shell">
       <main className="dashboard-hero-card landing-hero-card">
         <div className="hero-decorations" aria-hidden="true">
           <span className="decor-star star-1">✦</span>
