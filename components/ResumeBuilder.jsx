@@ -207,9 +207,22 @@ export function ResumeBuilder({ initialPremium = false }) {
   }, [workingResume]);
 
   useEffect(() => {
-    if (!fitPreview) return;
-    setSelectedFitIds(fitPreview.suggestions.filter((item) => item.type !== "format-only").map((item) => item.id));
-  }, [fitPreview]);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const tplName = params.get("template");
+    const importParam = params.get("import");
+    if (tplName) {
+      const found = DASHBOARD_TEMPLATES.find((t) => t.title.toLowerCase().includes(tplName.toLowerCase()));
+      if (found) {
+        handleLoadTemplate(found);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } else if (importParam === "true") {
+      openUpload();
+      setActiveView("editor");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   function updateResume(next) {
     setWorkingResume(ensureCanonicalResume(next));
