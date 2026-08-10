@@ -1,20 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
 :root {
-  --bg: #0b0d10;
-  --surface: #11151a;
-  --surface-2: #171c22;
-  --surface-3: #202731;
-  --line: rgba(226, 232, 240, 0.12);
-  --line-strong: rgba(226, 232, 240, 0.2);
+  --bg: #050914;
+  --surface: rgba(15, 23, 42, 0.75);
+  --surface-2: rgba(17, 24, 39, 0.65);
+  --surface-3: rgba(30, 41, 59, 0.85);
+  --line: rgba(148, 163, 184, 0.12);
+  --line-strong: rgba(148, 163, 184, 0.22);
   --text: #f8fafc;
-  --muted: #a8b3c2;
-  --soft: #dbe5ef;
-  --paper: #fffefb;
-  --ink: #101010;
-  --ok: #59d98e;
-  --warn: #f6c76c;
-  --accent: #5cc8f2;
-  --accent-2: #d7f99a;
-  --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+  --muted: #94a3b8;
+  --soft: #e2e8f0;
+  --paper: #ffffff;
+  --ink: #111827;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --accent: #8b5cf6;
+  --accent-2: #4f46e5;
+  --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
 * {
@@ -29,13 +31,15 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    linear-gradient(180deg, rgba(92, 200, 242, 0.1), transparent 380px),
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    var(--bg);
-  background-size: auto, 96px 96px, 96px 96px, auto;
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.1), transparent 45%),
+    radial-gradient(circle at 90% 80%, rgba(79, 70, 229, 0.1), transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(34, 211, 238, 0.03), transparent 50%),
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(180deg, #070b14 0%, #050914 100%);
+  background-size: auto, auto, auto, 56px 56px, 56px 56px, auto;
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Outfit', Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 14px;
   letter-spacing: 0;
 }
@@ -2326,4 +2330,219 @@ a {
   .paged-paper {
     min-height: auto;
   }
+}
+
+/* --- PREMIUM REDESIGN OVERRIDES --- */
+
+/* 1. BUTTONS */
+.primary-btn {
+  background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 55%, #2563EB 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.25), 0 0 10px rgba(124, 58, 237, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px !important;
+}
+.primary-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.45), 0 0 18px rgba(124, 58, 237, 0.25) !important;
+  filter: brightness(1.1);
+}
+.primary-btn:active {
+  transform: translateY(0) scale(0.97) !important;
+}
+
+.ghost-btn {
+  border-color: rgba(148, 163, 184, 0.12) !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(8px);
+  border-radius: 10px !important;
+}
+.ghost-btn:hover {
+  border-color: rgba(139, 92, 246, 0.4) !important;
+  background: rgba(139, 92, 246, 0.08) !important;
+  color: var(--text) !important;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.15) !important;
+  transform: translateY(-2px) !important;
+}
+.ghost-btn:active {
+  transform: translateY(0) scale(0.97) !important;
+}
+
+/* 2. SIDEBAR */
+.rover-sidebar {
+  border-right: 1px solid rgba(148, 163, 184, 0.08) !important;
+  background: rgba(7, 11, 20, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+}
+.side-link {
+  border-radius: 10px !important;
+}
+.side-link.active {
+  background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35), 0 0 15px rgba(124, 58, 237, 0.15) !important;
+  transform: translateX(4px) !important;
+}
+.side-link:hover:not(.active) {
+  background: rgba(139, 92, 246, 0.08) !important;
+  border-color: rgba(139, 92, 246, 0.2) !important;
+  color: var(--text) !important;
+  transform: translateX(2px) !important;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.05);
+}
+
+/* 3. CARDS & PANELS */
+.card, .panel, .form-section {
+  border: 1px solid rgba(148, 163, 184, 0.08) !important;
+  border-radius: 14px !important;
+  background: rgba(15, 23, 42, 0.7) !important;
+  backdrop-filter: blur(14px) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35) !important;
+}
+.card:hover, .form-section:hover {
+  border-color: rgba(139, 92, 246, 0.2) !important;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.45), 0 0 25px rgba(139, 92, 246, 0.03) !important;
+}
+
+/* 4. HERO PAGE STYLING */
+.hero h1 span:last-child {
+  background: linear-gradient(90deg, #8B5CF6 0%, #6366F1 50%, #22D3EE 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  display: inline-block !important;
+}
+.hero-copy {
+  color: #94A3B8 !important;
+}
+.hero-visual {
+  perspective: 1100px;
+}
+.hero-mock {
+  border: 1px solid rgba(139, 92, 246, 0.2) !important;
+  border-radius: 12px !important;
+  background: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(139, 92, 246, 0.1) !important;
+  transition: transform 0.5s ease;
+}
+.hero-mock:hover {
+  transform: scale(1.05) translateZ(30px) !important;
+  border-color: rgba(139, 92, 246, 0.4) !important;
+}
+.hero-mock-resume {
+  background: #ffffff !important; /* Keep resume document white */
+}
+
+/* 5. RESUME PREVIEW & OUTER GLOW */
+.preview-wrap {
+  border: 1px solid rgba(148, 163, 184, 0.08) !important;
+  border-radius: 14px !important;
+  background: rgba(15, 23, 42, 0.55) !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45) !important;
+}
+.resume-preview-shell {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(16px);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  padding: 24px;
+}
+.resume-paper {
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.15), 0 20px 50px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 6. ATS SCORE & PROGRESS */
+.ats-breakdown p {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  border: 1px solid rgba(148, 163, 184, 0.08) !important;
+  border-radius: 10px !important;
+  background: rgba(15, 23, 42, 0.45) !important;
+  padding: 12px !important;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+.ats-breakdown p:hover {
+  border-color: rgba(139, 92, 246, 0.3) !important;
+  transform: translateY(-1px);
+}
+.ats-breakdown-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.ats-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.ats-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fillProgress 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes fillProgress {
+  from { width: 0%; }
+}
+.success .ats-progress-fill {
+  background: linear-gradient(90deg, #10B981, #34D399) !important;
+}
+.notice .ats-progress-fill {
+  background: linear-gradient(90deg, #7C3AED, #6366F1) !important;
+}
+
+.choice-card, .ats-hero-score {
+  border: 1px solid rgba(148, 163, 184, 0.08) !important;
+  border-radius: 12px !important;
+  background: rgba(17, 24, 39, 0.55) !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+}
+.choice-card span, .ats-hero-score span {
+  color: #22D3EE !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.1em !important;
+}
+.choice-card:hover, .ats-hero-score:hover {
+  border-color: rgba(139, 92, 246, 0.35) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), 0 0 24px rgba(139, 92, 246, 0.1) !important;
+}
+.ats-hero-score.warning span {
+  color: #ef4444 !important;
+}
+
+/* 7. FORM ELEMENTS */
+.field input, .field textarea, .field select {
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  border-radius: 10px !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+}
+.field input:focus, .field textarea:focus, .field select:focus {
+  border-color: rgba(139, 92, 246, 0.65) !important;
+  background: rgba(15, 23, 42, 0.98) !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
+}
+
+/* 8. MINI BUTTONS & DELETES */
+.mini-btn, .remove {
+  border-radius: 8px !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.mini-btn:hover, .remove:hover {
+  border-color: rgba(139, 92, 246, 0.4) !important;
+  background: rgba(139, 92, 246, 0.08) !important;
+}
+.mini-btn.danger:hover, .remove:hover {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #ef4444 !important;
 }

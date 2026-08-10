@@ -665,8 +665,13 @@ export function ResumeBuilder({ initialPremium = false }) {
               <div className="ats-breakdown">
                 {(analysis.breakdown || []).map((item) => (
                   <p key={item.label} className={item.percent >= 80 ? "success" : "notice"}>
-                    <strong>{item.label}</strong>
-                    <span>{item.points} / {item.max}</span>
+                    <span className="ats-breakdown-label">
+                      <strong>{item.label}</strong>
+                      <span>{item.points} / {item.max}</span>
+                    </span>
+                    <span className="ats-progress-bar">
+                      <span className="ats-progress-fill" style={{ width: `${item.percent}%` }}></span>
+                    </span>
                   </p>
                 ))}
               </div>
