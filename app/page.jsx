@@ -1,164 +1,62 @@
-"use client";
-
 import Link from "next/link";
+import { ResumeShowcase } from "@/components/ResumeShowcase";
 
 export default function HomePage() {
-  const landingTemplates = [
-    {
-      title: "Frontend Developer",
-      subtitle: "Web Development",
-      param: "frontend"
-    },
-    {
-      title: "Data Analyst",
-      subtitle: "Analytics",
-      param: "data"
-    },
-    {
-      title: "Project Coordinator",
-      subtitle: "Management",
-      param: "project"
-    },
-    {
-      title: "Customer Support Specialist",
-      subtitle: "Support",
-      param: "customer"
-    }
-  ];
-
   return (
-    <div className="landing-app-shell">
-      <main className="dashboard-hero-card landing-hero-card">
-        <div className="hero-decorations" aria-hidden="true">
-          <span className="decor-star star-1">✦</span>
-          <span className="decor-star star-2">✦</span>
+    <>
+      <main className="hero">
+        <div className="hero-visual" aria-hidden="true">
+          <div className="hero-mock hero-mock-editor">
+            <i style={{ "--line-width": "38%" }} />
+            <i style={{ "--line-width": "56%" }} />
+            <i style={{ "--line-width": "74%" }} />
+            <i style={{ "--line-width": "48%" }} />
+            <i style={{ "--line-width": "66%" }} />
+            <i style={{ "--line-width": "86%" }} />
+            <i style={{ "--line-width": "55%" }} />
+            <i style={{ "--line-width": "76%" }} />
+            <i style={{ "--line-width": "47%" }} />
+          </div>
+          <div className="hero-mock hero-mock-resume">
+            <b />
+            <i style={{ "--line-width": "44%" }} />
+            <i style={{ "--line-width": "66%" }} />
+            <i style={{ "--line-width": "82%" }} />
+            <hr />
+            <i style={{ "--line-width": "44%" }} />
+            <i style={{ "--line-width": "66%" }} />
+            <i style={{ "--line-width": "82%" }} />
+            <i style={{ "--line-width": "52%" }} />
+            <hr />
+            <i style={{ "--line-width": "44%" }} />
+            <i style={{ "--line-width": "66%" }} />
+            <i style={{ "--line-width": "82%" }} />
+          </div>
+          <div className="hero-mock hero-mock-score">
+            <strong>AI</strong>
+            <span>ATS Review</span>
+            <i style={{ "--line-width": "43%" }} />
+            <i style={{ "--line-width": "64%" }} />
+            <i style={{ "--line-width": "84%" }} />
+            <i style={{ "--line-width": "54%" }} />
+          </div>
         </div>
-        <div className="hero-card-left">
-          <span className="eyebrow-pill">✨ AI RESUME MAKER</span>
-          <h1>
-            Create, import, and refine your resume with an <span className="highlight-gradient">ATS-focused AI workflow.</span>
-          </h1>
-          <p className="hero-copy">
-            Build a clean professional resume, optimize it for a target role, and export matching PDF, Word, and text versions from one editor.
-          </p>
-          <div className="hero-actions-row">
-            <Link className="primary-btn dashboard-cta-btn" href="/career-cockpit">
-              ✨ Open AI Resume Maker &gt;
-            </Link>
-            <Link className="ghost-btn dashboard-import-btn" href="/career-cockpit?import=true">
-              📤 Import Resume
-            </Link>
-          </div>
-          <div className="hero-badges-row">
-            <span>✓ ATS Optimized</span>
-            <span>✨ AI Powered</span>
-            <span>📄 Export Ready</span>
-          </div>
-        </div>
-        <div className="hero-card-right">
-          <div className="hero-illustration">
-            <div className="ill-resume-card">
-              <div className="ill-header">
-                <span className="ill-avatar"></span>
-                <div className="ill-header-lines">
-                  <span className="line-short"></span>
-                  <span className="line-medium"></span>
-                </div>
-              </div>
-              <div className="ill-body">
-                <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-long"></span></div>
-                <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-medium"></span></div>
-                <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-short"></span></div>
-              </div>
-            </div>
-            <div className="ill-badge pdf-badge">PDF</div>
-            <div className="ill-badge docx-badge">DOCX</div>
-            <div className="ill-badge txt-badge">TXT</div>
-            <div className="ill-score-pill">ATS Score 84/100</div>
-            <div className="ill-glow-sphere"></div>
-          </div>
+        <p className="eyebrow">AI RESUME MAKER</p>
+        <h1>
+          <span>Create, import, and refine your resume</span>
+          <span>with an ATS-focused AI workflow.</span>
+        </h1>
+        <p className="hero-copy">
+          Build a clean professional resume, optimize it for a target role,
+          and export matching PDF, Word, and text versions from one editor.
+        </p>
+        <div className="hero-actions">
+          <Link className="primary-btn" href="/career-cockpit">
+            Open AI Resume Maker
+          </Link>
         </div>
       </main>
-
-      <div className="landing-divider"></div>
-
-      <section className="landing-examples-section">
-        <div className="examples-header">
-          <div className="examples-header-left">
-            <h2><span className="purple-title-dot"></span>Live ATS Resume Examples</h2>
-            <p>Clean, parser-friendly resume across different roles.</p>
-          </div>
-          <div className="carousel-arrows-dec" aria-hidden="true">
-            <span className="arrow-btn">&lt;</span>
-            <span className="arrow-btn">&gt;</span>
-          </div>
-        </div>
-
-        <div className="dashboard-templates-grid">
-          {landingTemplates.map((tpl) => (
-            <div className="tpl-card" key={tpl.title}>
-              <div className="tpl-card-content">
-                <div className="tpl-paper-mock">
-                  <span className="tpl-mock-title">{tpl.title}</span>
-                  <span className="tpl-mock-sub">{tpl.subtitle}</span>
-                  <div className="tpl-mock-line"></div>
-                  <div className="tpl-mock-line-short"></div>
-                </div>
-                <h3>{tpl.title}</h3>
-                <p>{tpl.subtitle}</p>
-              </div>
-              <Link className="ghost-btn tpl-preview-btn" href={`/career-cockpit?template=${tpl.param}`}>
-                👁 Preview & Edit
-              </Link>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="dashboard-stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon-wrapper purple-glow">
-            <span className="stat-icon">👤</span>
-          </div>
-          <div className="stat-info">
-            <h3>10K+</h3>
-            <p>Resumes Created</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon-wrapper blue-glow">
-            <span className="stat-icon">🛡️</span>
-          </div>
-          <div className="stat-info">
-            <h3>98%</h3>
-            <p>ATS Success Rate</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon-wrapper cyan-glow">
-            <span className="stat-icon">💾</span>
-          </div>
-          <div className="stat-info">
-            <h3>50+</h3>
-            <p>Export Formats</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="dashboard-footer-banner">
-        <div className="banner-left">
-          <div className="banner-icon-wrapper">
-            <span className="banner-icon">✨</span>
-          </div>
-          <div className="banner-text">
-            <h3>Ready to build your perfect resume?</h3>
-            <p>Join thousands of professionals who created ATS-optimized resumes.</p>
-          </div>
-        </div>
-        <Link className="primary-btn banner-cta" href="/career-cockpit">
-          Get Started Now →
-        </Link>
-      </section>
-    </div>
+      <ResumeShowcase />
+    </>
   );
 }

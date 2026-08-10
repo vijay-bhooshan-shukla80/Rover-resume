@@ -1,6 +1,6 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
+import { AppShell } from "@/components/AppShell";
 import { validClerkPublishableKey } from "@/lib/clerk-keys";
 import { clerkConfigured } from "@/lib/auth";
 import { clerkAppearance } from "@/lib/clerk-appearance";
@@ -18,8 +18,7 @@ export default function RootLayout({ children }) {
     return (
       <html lang="en">
         <body>
-          <Navbar clerkEnabled={false} />
-          {children}
+          <AppShell clerkEnabled={false}>{children}</AppShell>
         </body>
       </html>
     );
@@ -28,8 +27,7 @@ export default function RootLayout({ children }) {
     <ClerkProvider publishableKey={publishableKey} appearance={clerkAppearance}>
       <html lang="en">
         <body>
-          <Navbar clerkEnabled={clerkEnabled} />
-          {children}
+          <AppShell clerkEnabled={clerkEnabled}>{children}</AppShell>
         </body>
       </html>
     </ClerkProvider>

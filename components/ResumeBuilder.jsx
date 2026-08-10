@@ -45,81 +45,6 @@ const pendingAts = {
   partialKeywords: [],
 };
 
-const DASHBOARD_TEMPLATES = [
-  {
-    title: "Frontend Developer",
-    subtitle: "Web Development",
-    name: "Frontend Developer",
-    summary: "Frontend Developer focused on responsive interfaces, accessible components, and clean React workflows.",
-    experience: [
-      {
-        role: "Frontend Developer",
-        dates: "2024 - Present",
-        bullets: ["Built reusable React components for SaaS dashboards", "Improved page speed and mobile usability across key flows"]
-      }
-    ],
-    project: "Analytics Dashboard UI",
-    projectDate: "2025",
-    skills: "Languages: JavaScript, HTML, CSS. Frontend: React.js, Next.js, Responsive Design.",
-    certs: "Responsive Web Design Certification; React Fundamentals",
-    education: "Bachelor of Information Technology"
-  },
-  {
-    title: "Data Analyst",
-    subtitle: "Analytics",
-    name: "Data Analyst",
-    summary: "Data Analyst with experience turning raw business data into clear reporting, operational insights, and stakeholder-ready dashboards using SQL and BI tools.",
-    experience: [
-      {
-        role: "Data Analyst",
-        dates: "2023 - Present",
-        bullets: ["Created weekly KPI dashboards for sales and operations", "Cleaned large datasets and improved report accuracy"]
-      }
-    ],
-    project: "Sales Forecasting Report",
-    projectDate: "2025",
-    skills: "Analytics: SQL, Excel, Power BI, Tableau. Soft Skills: Stakeholder Communication.",
-    certs: "Google Data Analytics Certificate",
-    education: "Bachelor of Commerce"
-  },
-  {
-    title: "Project Coordinator",
-    subtitle: "Management",
-    name: "Project Coordinator",
-    summary: "Project Coordinator with strong scheduling, documentation, and cross-team communication skills. Experienced supporting delivery teams from planning to completion.",
-    experience: [
-      {
-        role: "Project Coordinator",
-        dates: "2022 - Present",
-        bullets: ["Tracked milestones, risks, and action items for project teams", "Prepared client updates and weekly delivery reports"]
-      }
-    ],
-    project: "Site Delivery Tracker",
-    projectDate: "2024",
-    skills: "Project Tools: MS Project, Excel, Jira. Strengths: Scheduling, Reporting, Vendor Coordination.",
-    certs: "CAPM Coursework Completed",
-    education: "Bachelor of Business Administration"
-  },
-  {
-    title: "Customer Support Specialist",
-    subtitle: "Support",
-    name: "Customer Support Specialist",
-    summary: "Customer Support Specialist known for calm communication, fast ticket resolution, and clear product guidance across chat and phone channels.",
-    experience: [
-      {
-        role: "Customer Support Specialist",
-        dates: "2023 - Present",
-        bullets: ["Resolved customer tickets across billing and product issues", "Maintained help center articles for common workflows"]
-      }
-    ],
-    project: "Help Center Refresh",
-    projectDate: "2025",
-    skills: "Support: Zendesk, Intercom, CRM Notes. Soft Skills: Empathy, De-escalation.",
-    certs: "Customer Service Excellence Training",
-    education: "BA Communications"
-  }
-];
-
 export function ResumeBuilder({ initialPremium = false }) {
   const { isLoaded, isSignedIn: clerkSignedIn } = useAuth();
   const signedIn = isLoaded ? clerkSignedIn : false;
@@ -142,42 +67,6 @@ export function ResumeBuilder({ initialPremium = false }) {
   const [activeTab, setActiveTab] = useState("edit");
   const [enhanceLoading, setEnhanceLoading] = useState(false);
   const [selectedFitIds, setSelectedFitIds] = useState([]);
-  const [activeView, setActiveView] = useState("dashboard");
-
-  function handleLoadTemplate(tpl) {
-    const legacy = {
-      name: "Vijay Bhooshan Shukla",
-      summary: tpl.summary,
-      experience: tpl.experience.map((item) => ({
-        role: item.role,
-        company: "Corsing Hurdling",
-        dates: item.dates,
-        bullets: item.bullets,
-        location: "Melbourne VIC | Australia",
-      })),
-      projects: [{ title: tpl.project, dates: tpl.projectDate, bullets: ["Developed template project using standard stack"] }],
-      skills: tpl.skills,
-      certifications: tpl.certs,
-      education: tpl.education,
-    };
-    const canonical = legacyResumeToCanonical(legacy);
-    canonical.profile = {
-      fullName: "Vijay Bhooshan Shukla",
-      phone: "+61 405 686 667",
-      email: "vijaybhooshanconserv@gmail.com",
-      location: "Melbourne VIC | Australia",
-      linkedin: "LinkedIn",
-      github: "Github",
-    };
-    canonical.documentSettings = {
-      ...workingResume.documentSettings,
-      settingsConfirmed: true,
-    };
-    updateResume(canonical);
-    setJobDescription("");
-    setActiveView("editor");
-    setMessage(`${tpl.title} template loaded successfully.`);
-  }
 
   const analysis = useMemo(() => analyzeResume(workingResume, jobDescription), [workingResume, jobDescription]);
   const pageModel = useMemo(() => getPaginatedDocumentModel(workingResume), [workingResume]);
@@ -207,22 +96,9 @@ export function ResumeBuilder({ initialPremium = false }) {
   }, [workingResume]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const tplName = params.get("template");
-    const importParam = params.get("import");
-    if (tplName) {
-      const found = DASHBOARD_TEMPLATES.find((t) => t.title.toLowerCase().includes(tplName.toLowerCase()));
-      if (found) {
-        handleLoadTemplate(found);
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    } else if (importParam === "true") {
-      openUpload();
-      setActiveView("editor");
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
+    if (!fitPreview) return;
+    setSelectedFitIds(fitPreview.suggestions.filter((item) => item.type !== "format-only").map((item) => item.id));
+  }, [fitPreview]);
 
   function updateResume(next) {
     setWorkingResume(ensureCanonicalResume(next));
@@ -354,7 +230,6 @@ export function ResumeBuilder({ initialPremium = false }) {
       };
       updateResume(canonical);
       setImportOpen(false);
-      setActiveView("editor");
       setMessage("Resume converted locally with source recovery, so skipped upload text stays preserved.");
     } catch (error) {
       setImportError(error.message || "Resume conversion failed.");
@@ -632,99 +507,73 @@ export function ResumeBuilder({ initialPremium = false }) {
           <span>Rx</span>
           <strong>AI Resume Maker</strong>
         </Link>
-        <button className={`side-link ${activeView === "dashboard" ? "active" : ""}`} type="button" onClick={() => setActiveView("dashboard")}>AI Resume Maker</button>
-        <button className="side-link" type="button" onClick={() => { startNewResume(); setActiveView("editor"); }}>Create Resume</button>
-        <button className="side-link" type="button" onClick={() => { openUpload(); setActiveView("editor"); }}>Upload Resume</button>
-        <button className="side-link" type="button" onClick={() => { undoAiChanges(); setActiveView("editor"); }}>Undo AI Changes</button>
+        <button className="side-link active" type="button">AI Resume Maker</button>
+        <button className="side-link" type="button" onClick={startNewResume}>Create Resume</button>
+        <button className="side-link" type="button" onClick={openUpload}>Upload Resume</button>
+        <button className="side-link" type="button" onClick={undoAiChanges}>Undo AI Changes</button>
         <Link className="side-link" href="/">Home</Link>
-        
-        <div className="sidebar-promo-card">
-          <h4>AI-Powered. ATS-Optimized.</h4>
-          <p>Create, tailor, and export a professional resume that gets you noticed.</p>
-          <div className="promo-illustration">
-            <div className="promo-page p1"></div>
-            <div className="promo-page p2">
-              <span className="p2-line long"></span>
-              <span className="p2-line med"></span>
-              <span className="p2-check">✓</span>
-            </div>
-            <div className="promo-page p3"></div>
-          </div>
-          <div className="promo-score-bar">
-            <div className="bar-label">
-              <span>ATS Score Boost</span>
-              <span>+35%</span>
-            </div>
-            <div className="bar-outer">
-              <div className="bar-inner" style={{ width: '85%' }}></div>
-            </div>
-          </div>
-        </div>
+        <p className="side-note">Canonical resume editing, ATS analysis, A4 preview parity, and validated exports.</p>
       </aside>
 
       <section className="rover-workspace">
-        {activeView === "editor" && (
-          <>
-            <header className="workspace-headline">
-              <div>
-                <p className="eyebrow">Current resume</p>
-                <h1>Build, tailor, fit, and export a professional ATS-friendly resume</h1>
-              </div>
-              <div className="actions">
-                <button className="ghost-btn" type="button" onClick={openUpload}>Upload / Convert</button>
-                <button className="primary-btn" type="button" onClick={startNewResume}>Create Resume</button>
-              </div>
-            </header>
+        <header className="workspace-headline">
+          <div>
+            <p className="eyebrow">Current resume</p>
+            <h1>Build, tailor, fit, and export a professional ATS-friendly resume</h1>
+          </div>
+          <div className="actions">
+            <button className="ghost-btn" type="button" onClick={openUpload}>Upload / Convert</button>
+            <button className="primary-btn" type="button" onClick={startNewResume}>Create Resume</button>
+          </div>
+        </header>
 
-            <section className="choice-panel">
-              <article className="choice-card static-card">
-                <span>ATS</span>
-                <strong>ATS Readiness Score</strong>
-                <small>{atsLabel}</small>
-              </article>
-              <article className="choice-card static-card">
-                <span>JD</span>
-                <strong>Job Match Score</strong>
-                <small>{jobMatchLabel}</small>
-              </article>
-              <article className={`ats-hero-score${pageModel.status !== "fit" ? " warning" : ""}`}>
-                <span>Pages</span>
-                <strong>{pageModel.pageCount}</strong>
-                <small>{pageModel.status === "fit" ? `Fits ${workingResume.documentSettings.resumeLength} page limit` : "Content does not fit"}</small>
-              </article>
-            </section>
+        <section className="choice-panel">
+          <article className="choice-card static-card">
+            <span>ATS</span>
+            <strong>ATS Readiness Score</strong>
+            <small>{atsLabel}</small>
+          </article>
+          <article className="choice-card static-card">
+            <span>JD</span>
+            <strong>Job Match Score</strong>
+            <small>{jobMatchLabel}</small>
+          </article>
+          <article className={`ats-hero-score${pageModel.status !== "fit" ? " warning" : ""}`}>
+            <span>Pages</span>
+            <strong>{pageModel.pageCount}</strong>
+            <small>{pageModel.status === "fit" ? `Fits ${workingResume.documentSettings.resumeLength} page limit` : "Content does not fit"}</small>
+          </article>
+        </section>
 
-            <section ref={settingsRef} className="form-section settings-card">
-              <div className="section-title">
-                <h3>Document Settings</h3>
-                <button className="mini-btn" type="button" onClick={confirmDocumentSettings}>
-                  {workingResume.documentSettings.settingsConfirmed ? "Confirmed" : "Confirm Settings"}
-                </button>
-              </div>
-              <div className="two-col">
-                <label className="field">
-                  Page Size
-                  <select value={workingResume.documentSettings.pageSize} onChange={(e) => updateSettingsField("pageSize", e.target.value)}>
-                    <option value="A4">A4</option>
-                    <option value="US Letter">US Letter</option>
-                  </select>
-                </label>
-                <label className="field">
-                  Resume Length
-                  <select value={String(workingResume.documentSettings.resumeLength)} onChange={(e) => updateSettingsField("resumeLength", Number(e.target.value))}>
-                    <option value="1">1 Page</option>
-                    <option value="2">2 Pages</option>
-                  </select>
-                </label>
-              </div>
-              <div className="actions settings-actions">
-                <button className="ghost-btn small" type="button" onClick={() => previewFit(1)}>Fit to 1 Page</button>
-                <button className="ghost-btn small" type="button" onClick={() => previewFit(2)}>Fit to 2 Pages</button>
-              </div>
-              {!workingResume.documentSettings.settingsConfirmed ? <p className="notice">Document settings must be confirmed before create, upload, or AI conversion flows.</p> : null}
-            </section>
-          </>
-        )}
+        <section ref={settingsRef} className="form-section settings-card">
+          <div className="section-title">
+            <h3>Document Settings</h3>
+            <button className="mini-btn" type="button" onClick={confirmDocumentSettings}>
+              {workingResume.documentSettings.settingsConfirmed ? "Confirmed" : "Confirm Settings"}
+            </button>
+          </div>
+          <div className="two-col">
+            <label className="field">
+              Page Size
+              <select value={workingResume.documentSettings.pageSize} onChange={(e) => updateSettingsField("pageSize", e.target.value)}>
+                <option value="A4">A4</option>
+                <option value="US Letter">US Letter</option>
+              </select>
+            </label>
+            <label className="field">
+              Resume Length
+              <select value={String(workingResume.documentSettings.resumeLength)} onChange={(e) => updateSettingsField("resumeLength", Number(e.target.value))}>
+                <option value="1">1 Page</option>
+                <option value="2">2 Pages</option>
+              </select>
+            </label>
+          </div>
+          <div className="actions settings-actions">
+            <button className="ghost-btn small" type="button" onClick={() => previewFit(1)}>Fit to 1 Page</button>
+            <button className="ghost-btn small" type="button" onClick={() => previewFit(2)}>Fit to 2 Pages</button>
+          </div>
+          {!workingResume.documentSettings.settingsConfirmed ? <p className="notice">Document settings must be confirmed before create, upload, or AI conversion flows.</p> : null}
+        </section>
 
         <section className="builder old-builder-grid">
           <div className="mobile-tabs">
@@ -732,168 +581,48 @@ export function ResumeBuilder({ initialPremium = false }) {
             <button className={`ghost-btn small ${activeTab === "preview" ? "active" : ""}`} type="button" onClick={() => setActiveTab("preview")}>Preview</button>
           </div>
 
-          {activeView === "dashboard" ? (
-            <div className={`dashboard-column ${activeTab === "preview" ? "mobile-hidden" : ""}`}>
-              <div className="dashboard-hero-card">
-                <div className="hero-card-left">
-                  <span className="eyebrow-pill">✨ AI RESUME MAKER</span>
-                  <h1>
-                    Create, import, and refine your resume with an <span className="highlight-gradient">ATS-focused AI workflow.</span>
-                  </h1>
-                  <p className="hero-copy">
-                    Build a clean professional resume, optimize it for a target role, and export matching PDF, Word, and text versions from one editor.
-                  </p>
-                  <div className="hero-actions-row">
-                    <button className="primary-btn dashboard-cta-btn" type="button" onClick={() => setActiveView("editor")}>
-                      ✨ Open AI Resume Maker &gt;
-                    </button>
-                    <button className="ghost-btn dashboard-import-btn" type="button" onClick={() => { openUpload(); setActiveView("editor"); }}>
-                      📤 Import Resume
-                    </button>
-                  </div>
-                  <div className="hero-badges-row">
-                    <span>✓ ATS Optimized</span>
-                    <span>✨ AI Powered</span>
-                    <span>📄 Export Ready</span>
-                  </div>
-                </div>
-                <div className="hero-card-right">
-                  <div className="hero-illustration">
-                    <div className="ill-resume-card">
-                      <div className="ill-header">
-                        <span className="ill-avatar"></span>
-                        <div className="ill-header-lines">
-                          <span className="line-short"></span>
-                          <span className="line-medium"></span>
-                        </div>
-                      </div>
-                      <div className="ill-body">
-                        <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-long"></span></div>
-                        <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-medium"></span></div>
-                        <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-short"></span></div>
-                      </div>
-                    </div>
-                    <div className="ill-badge pdf-badge">PDF</div>
-                    <div className="ill-badge docx-badge">DOCX</div>
-                    <div className="ill-badge txt-badge">TXT</div>
-                    <div className="ill-score-pill">ATS Score 84/100</div>
-                    <div className="ill-glow-sphere"></div>
-                  </div>
-                </div>
+          <form className={`editor old-editor ${activeTab === "preview" ? "mobile-hidden" : ""}`}>
+            <FormSection title="Profile">
+              <label className="field">Full Name<input value={workingResume.profile.fullName || ""} onChange={(e) => setProfileField("fullName", e.target.value)} /></label>
+              <label className="field">Target Role<input value={workingResume.targetRole || ""} onChange={(e) => setTargetRoleField(e.target.value)} /></label>
+              <div className="two-col">
+                <label className="field">Phone<input value={workingResume.profile.phone || ""} onChange={(e) => setProfileField("phone", e.target.value)} /></label>
+                <label className="field">Email<input value={workingResume.profile.email || ""} onChange={(e) => setProfileField("email", e.target.value)} /></label>
               </div>
-
-              <div className="examples-header">
-                <h2>Live ATS Resume Examples</h2>
-                <p>Clean, parser-friendly resume across different roles.</p>
+              <label className="field">Location<input value={workingResume.profile.location || ""} onChange={(e) => setProfileField("location", e.target.value)} /></label>
+              <div className="two-col">
+                <label className="field">LinkedIn URL<input value={workingResume.profile.linkedin || ""} onChange={(e) => setProfileField("linkedin", e.target.value)} /></label>
+                <label className="field">GitHub / Portfolio URL<input value={workingResume.profile.github || ""} onChange={(e) => setProfileField("github", e.target.value)} /></label>
               </div>
+            </FormSection>
 
-              <div className="dashboard-templates-grid">
-                {DASHBOARD_TEMPLATES.map((tpl) => (
-                  <div className="tpl-card" key={tpl.title}>
-                    <div className="tpl-card-content">
-                      <div className="tpl-paper-mock">
-                        <span className="tpl-mock-title">{tpl.title}</span>
-                        <span className="tpl-mock-sub">{tpl.subtitle}</span>
-                        <div className="tpl-mock-line"></div>
-                        <div className="tpl-mock-line-short"></div>
-                      </div>
-                      <h3>{tpl.title}</h3>
-                      <p>{tpl.subtitle}</p>
-                    </div>
-                    <button className="ghost-btn tpl-preview-btn" type="button" onClick={() => handleLoadTemplate(tpl)}>
-                      👁 Preview
-                    </button>
-                  </div>
+            <FormSection title="Job Description">
+              <label className="field">Paste Job Description<textarea rows={5} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} placeholder="Paste responsibilities, tools, qualifications, or hiring requirements." /></label>
+            </FormSection>
+
+            <FormSection title="Section Library">
+              <div className="actions section-add-grid">
+                {["summary", "skills", "experience", "projects", "education", "certifications", "custom"].map((type) => (
+                  <button key={type} className="ghost-btn small" type="button" onClick={() => addNewSection(type)}>
+                    Add {type === "custom" ? "Custom Section" : capitalize(type)}
+                  </button>
                 ))}
               </div>
+            </FormSection>
 
-              <div className="dashboard-stats-grid">
-                <div className="stat-card">
-                  <div className="stat-icon-wrapper purple-glow">
-                    <span className="stat-icon">👤</span>
-                  </div>
-                  <div className="stat-info">
-                    <h3>10K+</h3>
-                    <p>Resumes Created</p>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-icon-wrapper blue-glow">
-                    <span className="stat-icon">🛡️</span>
-                  </div>
-                  <div className="stat-info">
-                    <h3>98%</h3>
-                    <p>ATS Success Rate</p>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-icon-wrapper cyan-glow">
-                    <span className="stat-icon">💾</span>
-                  </div>
-                  <div className="stat-info">
-                    <h3>50+</h3>
-                    <p>Export Formats</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="dashboard-footer-banner">
-                <div className="banner-left">
-                  <div className="banner-icon">✨</div>
-                  <div className="banner-text">
-                    <h3>Ready to build your perfect resume?</h3>
-                    <p>Join thousands of professionals who created ATS-optimized resumes.</p>
-                  </div>
-                </div>
-                <button className="primary-btn banner-cta" type="button" onClick={() => setActiveView("editor")}>
-                  Get Started Now →
-                </button>
-              </div>
-            </div>
-          ) : (
-            <form className={`editor old-editor ${activeTab === "preview" ? "mobile-hidden" : ""}`}>
-              <FormSection title="Profile">
-                <label className="field">Full Name<input value={workingResume.profile.fullName || ""} onChange={(e) => setProfileField("fullName", e.target.value)} /></label>
-                <label className="field">Target Role<input value={workingResume.targetRole || ""} onChange={(e) => setTargetRoleField(e.target.value)} /></label>
-                <div className="two-col">
-                  <label className="field">Phone<input value={workingResume.profile.phone || ""} onChange={(e) => setProfileField("phone", e.target.value)} /></label>
-                  <label className="field">Email<input value={workingResume.profile.email || ""} onChange={(e) => setProfileField("email", e.target.value)} /></label>
-                </div>
-                <label className="field">Location<input value={workingResume.profile.location || ""} onChange={(e) => setProfileField("location", e.target.value)} /></label>
-                <div className="two-col">
-                  <label className="field">LinkedIn URL<input value={workingResume.profile.linkedin || ""} onChange={(e) => setProfileField("linkedin", e.target.value)} /></label>
-                  <label className="field">GitHub / Portfolio URL<input value={workingResume.profile.github || ""} onChange={(e) => setProfileField("github", e.target.value)} /></label>
-                </div>
-              </FormSection>
-
-              <FormSection title="Job Description">
-                <label className="field">Paste Job Description<textarea rows={5} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} placeholder="Paste responsibilities, tools, qualifications, or hiring requirements." /></label>
-              </FormSection>
-
-              <FormSection title="Section Library">
-                <div className="actions section-add-grid">
-                  {["summary", "skills", "experience", "projects", "education", "certifications", "custom"].map((type) => (
-                    <button key={type} className="ghost-btn small" type="button" onClick={() => addNewSection(type)}>
-                      Add {type === "custom" ? "Custom Section" : capitalize(type)}
-                    </button>
-                  ))}
-                </div>
-              </FormSection>
-
-              {workingResume.sections.map((section, index) => (
-                <SectionEditor
-                  key={section.id}
-                  section={section}
-                  index={index}
-                  onPatch={patchSection}
-                  onDelete={handleSectionDelete}
-                  onDuplicate={handleSectionDuplicate}
-                  onMove={handleSectionMove}
-                  onToggleVisibility={toggleSectionVisibility}
-                />
-              ))}
-            </form>
-          )}
+            {workingResume.sections.map((section, index) => (
+              <SectionEditor
+                key={section.id}
+                section={section}
+                index={index}
+                onPatch={patchSection}
+                onDelete={handleSectionDelete}
+                onDuplicate={handleSectionDuplicate}
+                onMove={handleSectionMove}
+                onToggleVisibility={toggleSectionVisibility}
+              />
+            ))}
+          </form>
 
           <aside className={`preview-wrap ${activeTab === "edit" ? "mobile-hidden-preview" : ""}`}>
             <div className="preview-head">
@@ -936,13 +665,8 @@ export function ResumeBuilder({ initialPremium = false }) {
               <div className="ats-breakdown">
                 {(analysis.breakdown || []).map((item) => (
                   <p key={item.label} className={item.percent >= 80 ? "success" : "notice"}>
-                    <span className="ats-breakdown-label">
-                      <strong>{item.label}</strong>
-                      <span>{item.points} / {item.max}</span>
-                    </span>
-                    <span className="ats-progress-bar">
-                      <span className="ats-progress-fill" style={{ width: `${item.percent}%` }}></span>
-                    </span>
+                    <strong>{item.label}</strong>
+                    <span>{item.points} / {item.max}</span>
                   </p>
                 ))}
               </div>
