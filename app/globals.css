@@ -31,13 +31,12 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.1), transparent 45%),
-    radial-gradient(circle at 90% 80%, rgba(79, 70, 229, 0.1), transparent 45%),
-    radial-gradient(circle at 50% 50%, rgba(34, 211, 238, 0.03), transparent 50%),
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(180deg, #070b14 0%, #050914 100%);
-  background-size: auto, auto, auto, 56px 56px, 56px 56px, auto;
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.08), transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(79, 70, 229, 0.08), transparent 45%),
+    linear-gradient(rgba(99, 102, 241, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.035) 1px, transparent 1px),
+    #050914;
+  background-size: auto, auto, 32px 32px, 32px 32px, auto;
   color: var(--text);
   font-family: 'Outfit', Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 14px;
@@ -2671,19 +2670,48 @@ a {
 .dashboard-hero-card {
   display: flex;
   gap: 24px;
-  padding: 32px;
+  padding: 36px 40px;
   border-radius: 16px;
-  background: radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.08) 0%, transparent 50%), rgba(15, 23, 42, 0.65);
-  border: 1px solid rgba(148, 163, 184, 0.08);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, rgba(10, 15, 32, 0.98), rgba(12, 17, 38, 0.96), rgba(8, 13, 29, 0.98));
+  border: 1px solid rgba(139, 92, 246, 0.14);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28), 0 0 60px rgba(99, 102, 241, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+.hero-decorations {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.decor-star {
+  position: absolute;
+  color: rgba(167, 139, 250, 0.35);
+  font-size: 14px;
+  animation: starPulse 4s ease-in-out infinite;
+}
+.decor-star.star-1 {
+  top: 20px;
+  right: 30px;
+}
+.decor-star.star-2 {
+  bottom: 40px;
+  left: 20px;
+  animation-delay: 2s;
+}
+@keyframes starPulse {
+  0%, 100% { opacity: 0.2; transform: scale(0.9); }
+  50% { opacity: 0.8; transform: scale(1.1); }
 }
 .hero-card-left {
-  flex: 1;
+  width: 58%;
+  flex: none;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 16px;
   text-align: left;
+  z-index: 2;
 }
 .eyebrow-pill {
   padding: 4px 10px;
@@ -2697,70 +2725,111 @@ a {
 }
 .hero-card-left h1 {
   margin: 0;
-  font-size: clamp(24px, 2.5vw, 32px);
-  line-height: 1.15;
+  font-size: clamp(28px, 3.2vw, 42px);
+  line-height: 1.08;
   font-weight: 800;
   color: #ffffff;
 }
 .highlight-gradient {
-  background: linear-gradient(90deg, #a78bfa 0%, #6366f1 50%, #22d3ee 100%);
+  background: linear-gradient(90deg, #a855f7, #8b5cf6, #6366f1, #38bdf8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  display: inline-block;
+  display: inline;
+}
+.hero-copy {
+  color: #94a3b8 !important;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
 }
 .hero-actions-row {
   display: flex;
   gap: 12px;
   width: 100%;
 }
+.dashboard-cta-btn, .dashboard-import-btn {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease !important;
+}
+.dashboard-cta-btn:hover, .dashboard-import-btn:hover {
+  transform: translateY(-2px);
+}
+.dashboard-cta-btn:active, .dashboard-import-btn:active {
+  transform: scale(0.98);
+}
 .dashboard-cta-btn {
   padding: 0 20px !important;
   min-height: 40px !important;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3) !important;
+}
+.dashboard-cta-btn:hover {
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45) !important;
 }
 .dashboard-import-btn {
   padding: 0 18px !important;
   min-height: 40px !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(139, 92, 246, 0.25) !important;
+}
+.dashboard-import-btn:hover {
+  border-color: rgba(139, 92, 246, 0.5) !important;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.1) !important;
 }
 .hero-badges-row {
   display: flex;
-  gap: 16px;
+  gap: 12px;
+}
+.hero-badges-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 99px;
   font-size: 11px;
-  color: #94a3b8;
-  font-weight: 600;
+  font-weight: 500;
+  color: #cbd5e1;
 }
 .hero-card-right {
-  width: 220px;
+  width: 42%;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+  background-position: center;
+  border-radius: 12px;
+  min-height: 240px;
 }
 .hero-illustration {
   position: relative;
-  width: 150px;
-  height: 160px;
+  width: 190px;
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .ill-resume-card {
-  width: 96px;
-  height: 130px;
+  width: 110px;
+  height: 150px;
   background: #0f172a !important;
   border: 1px solid rgba(139, 92, 246, 0.4) !important;
-  border-radius: 10px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 25px rgba(139, 92, 246, 0.2) !important;
-  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 0 30px rgba(139, 92, 246, 0.25) !important;
+  padding: 12px;
   position: relative;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  animation: illFloat 6s ease-in-out infinite;
+  gap: 10px;
+  animation: resumeFloat 5s ease-in-out infinite;
 }
-@keyframes illFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-8px) rotate(1deg); }
+@keyframes resumeFloat {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-8px) rotate(0deg); }
 }
 .ill-header {
   display: flex;
@@ -2815,14 +2884,19 @@ a {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 160px;
-  height: 160px;
+  width: 190px;
+  height: 190px;
   border: 1.5px solid rgba(139, 92, 246, 0.4);
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+  box-shadow: 0 0 25px rgba(139, 92, 246, 0.25);
   border-radius: 50%;
   transform: translate(-50%, -50%) rotateX(75deg) rotateY(-15deg);
   z-index: 1;
   pointer-events: none;
+  animation: rotateRing 10s linear infinite;
+}
+@keyframes rotateRing {
+  0% { transform: translate(-50%, -50%) rotateX(75deg) rotateY(-15deg) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotateX(75deg) rotateY(-15deg) rotate(360deg); }
 }
 
 .ill-badge {
@@ -3102,19 +3176,102 @@ a {
 /* 14. LANDING PAGE OVERRIDES */
 .landing-container {
   max-width: 1200px;
-  margin: 40px auto 100px;
-  padding: 0 24px;
+  margin: 32px auto 80px;
+  padding: 0 16px;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 24px; /* Dense 24-32px spacing */
 }
 .landing-hero-card {
   align-items: center;
+  /* Entrance transition */
+  animation: landingReveal 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .landing-examples-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px; /* 14-18px examples heading to cards */
+  animation: landingReveal 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.dashboard-stats-grid {
+  animation: landingReveal 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.dashboard-footer-banner {
+  animation: landingReveal 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes landingReveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 16. DIVIDER AND DOTS */
+.landing-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.15), transparent);
+  margin: 8px 0;
+}
+.purple-title-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #a78bfa;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  box-shadow: 0 0 8px #a78bfa;
+}
+.examples-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 10px;
+}
+.examples-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.carousel-arrows-dec {
+  display: flex;
+  gap: 8px;
+}
+.carousel-arrows-dec .arrow-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.carousel-arrows-dec .arrow-btn:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+  color: #f8fafc;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+}
+
+/* Card Hover Effects */
+.tpl-card, .stat-card, .dashboard-footer-banner {
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease !important;
+}
+.tpl-card:hover, .stat-card:hover, .dashboard-footer-banner:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(139, 92, 246, 0.35) !important;
+  box-shadow: 0 12px 35px rgba(76, 29, 149, 0.16) !important;
 }
 
 /* 15. SIDEBAR PROMO CARD DETAILS */

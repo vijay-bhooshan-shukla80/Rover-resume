@@ -29,6 +29,10 @@ export default function HomePage() {
   return (
     <div className="landing-container">
       <main className="dashboard-hero-card landing-hero-card">
+        <div className="hero-decorations" aria-hidden="true">
+          <span className="decor-star star-1">✦</span>
+          <span className="decor-star star-2">✦</span>
+        </div>
         <div className="hero-card-left">
           <span className="eyebrow-pill">✨ AI RESUME MAKER</span>
           <h1>
@@ -76,10 +80,18 @@ export default function HomePage() {
         </div>
       </main>
 
+      <div className="landing-divider"></div>
+
       <section className="landing-examples-section">
         <div className="examples-header">
-          <h2>Live ATS Resume Examples</h2>
-          <p>Clean, parser-friendly resume across different roles.</p>
+          <div className="examples-header-left">
+            <h2><span className="purple-title-dot"></span>Live ATS Resume Examples</h2>
+            <p>Clean, parser-friendly resume across different roles.</p>
+          </div>
+          <div className="carousel-arrows-dec" aria-hidden="true">
+            <span className="arrow-btn">&lt;</span>
+            <span className="arrow-btn">&gt;</span>
+          </div>
         </div>
 
         <div className="dashboard-templates-grid">
@@ -135,7 +147,9 @@ export default function HomePage() {
 
       <section className="dashboard-footer-banner">
         <div className="banner-left">
-          <div className="banner-icon">✨</div>
+          <div className="banner-icon-wrapper">
+            <span className="banner-icon">✨</span>
+          </div>
           <div className="banner-text">
             <h3>Ready to build your perfect resume?</h3>
             <p>Join thousands of professionals who created ATS-optimized resumes.</p>
