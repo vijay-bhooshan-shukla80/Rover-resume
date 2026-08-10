@@ -54,10 +54,17 @@ export default function HomePage() {
         <div className="hero-card-right">
           <div className="hero-illustration">
             <div className="ill-resume-card">
-              <div className="ill-lines">
-                <span className="line-long"></span>
-                <span className="line-medium"></span>
-                <span className="line-short"></span>
+              <div className="ill-header">
+                <span className="ill-avatar"></span>
+                <div className="ill-header-lines">
+                  <span className="line-short"></span>
+                  <span className="line-medium"></span>
+                </div>
+              </div>
+              <div className="ill-body">
+                <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-long"></span></div>
+                <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-medium"></span></div>
+                <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-short"></span></div>
               </div>
             </div>
             <div className="ill-badge pdf-badge">PDF</div>

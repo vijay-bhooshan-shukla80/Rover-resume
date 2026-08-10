@@ -643,7 +643,11 @@ export function ResumeBuilder({ initialPremium = false }) {
           <p>Create, tailor, and export a professional resume that gets you noticed.</p>
           <div className="promo-illustration">
             <div className="promo-page p1"></div>
-            <div className="promo-page p2"></div>
+            <div className="promo-page p2">
+              <span className="p2-line long"></span>
+              <span className="p2-line med"></span>
+              <span className="p2-check">✓</span>
+            </div>
             <div className="promo-page p3"></div>
           </div>
           <div className="promo-score-bar">
@@ -756,10 +760,17 @@ export function ResumeBuilder({ initialPremium = false }) {
                 <div className="hero-card-right">
                   <div className="hero-illustration">
                     <div className="ill-resume-card">
-                      <div className="ill-lines">
-                        <span className="line-long"></span>
-                        <span className="line-medium"></span>
-                        <span className="line-short"></span>
+                      <div className="ill-header">
+                        <span className="ill-avatar"></span>
+                        <div className="ill-header-lines">
+                          <span className="line-short"></span>
+                          <span className="line-medium"></span>
+                        </div>
+                      </div>
+                      <div className="ill-body">
+                        <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-long"></span></div>
+                        <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-medium"></span></div>
+                        <div className="ill-checkbox-line"><span className="ill-check">✓</span><span className="line-short"></span></div>
                       </div>
                     </div>
                     <div className="ill-badge pdf-badge">PDF</div>

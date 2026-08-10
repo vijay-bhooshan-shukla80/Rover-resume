@@ -2744,35 +2744,86 @@ a {
   justify-content: center;
 }
 .ill-resume-card {
-  width: 90px;
-  height: 120px;
-  background: rgba(30, 41, 59, 0.9);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 8px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(139, 92, 246, 0.15);
-  padding: 12px;
+  width: 96px;
+  height: 130px;
+  background: #0f172a !important;
+  border: 1px solid rgba(139, 92, 246, 0.4) !important;
+  border-radius: 10px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 25px rgba(139, 92, 246, 0.2) !important;
+  padding: 10px;
   position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   animation: illFloat 6s ease-in-out infinite;
 }
 @keyframes illFloat {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-8px) rotate(1deg); }
 }
-.ill-lines {
+.ill-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ill-avatar {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  display: block;
+}
+.ill-header-lines {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 3px;
+  flex: 1;
 }
-.ill-lines span {
+.ill-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.ill-checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.ill-check {
+  color: #34d399;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+}
+.ill-resume-card span.line-long,
+.ill-resume-card span.line-medium,
+.ill-resume-card span.line-short {
   display: block;
-  height: 5px;
+  height: 4px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15) !important;
 }
-.ill-lines .line-long { width: 100%; }
-.ill-lines .line-medium { width: 75%; }
-.ill-lines .line-short { width: 50%; }
+.ill-resume-card span.line-long { width: 100%; }
+.ill-resume-card span.line-medium { width: 75%; }
+.ill-resume-card span.line-short { width: 50%; }
+
+/* Glowing Orbital Ring around card */
+.hero-illustration::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 160px;
+  height: 160px;
+  border: 1.5px solid rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotateX(75deg) rotateY(-15deg);
+  z-index: 1;
+  pointer-events: none;
+}
 
 .ill-badge {
   position: absolute;
@@ -2875,35 +2926,38 @@ a {
   gap: 8px;
 }
 .tpl-paper-mock {
-  height: 70px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed rgba(148, 163, 184, 0.12);
-  border-radius: 8px;
+  height: 80px;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 6px;
   padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
 .tpl-mock-title {
   font-size: 7px;
   font-weight: 800;
-  color: #a78bfa;
+  color: #4F46E5 !important;
+  line-height: 1;
 }
 .tpl-mock-sub {
   font-size: 6px;
-  color: #94a3b8;
+  color: #64748b !important;
+  line-height: 1;
 }
 .tpl-mock-line {
   height: 3px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #e2e8f0 !important;
   width: 90%;
-  border-radius: 1px;
+  border-radius: 99px;
 }
 .tpl-mock-line-short {
   height: 3px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #e2e8f0 !important;
   width: 60%;
-  border-radius: 1px;
+  border-radius: 99px;
 }
 .tpl-card h3 {
   margin: 0;
@@ -3061,4 +3115,31 @@ a {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* 15. SIDEBAR PROMO CARD DETAILS */
+.promo-page.p2 {
+  display: flex !important;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+}
+.p2-line {
+  display: block;
+  height: 3px;
+  border-radius: 1px;
+  background: #cbd5e1;
+}
+.p2-line.long {
+  width: 90%;
+}
+.p2-line.med {
+  width: 60%;
+}
+.p2-check {
+  color: #10b981;
+  font-size: 7px;
+  font-weight: 900;
+  line-height: 1;
+  margin-top: 2px;
 }
