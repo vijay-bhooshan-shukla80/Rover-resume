@@ -176,6 +176,21 @@ export function ResumeBuilder({ initialPremium = false }) {
     updateResume(updateDocumentSettings(workingResume, { [field]: value }));
   }
 
+  function adjustTypographyField(field, delta) {
+    const limits = {
+      nameSize: { min: 18, max: 20 },
+      headingSize: { min: 10.8, max: 11.4 },
+      bodySize: { min: 9.1, max: 10 },
+    };
+    const currentTypography = pageModel.typography || {};
+    const currentValue = Number(workingResume.documentSettings?.customTypography?.[field] ?? currentTypography[field] ?? DEFAULT_DOCUMENT_SETTINGS.customTypography?.[field] ?? 0);
+    const nextValue = Math.max(limits[field].min, Math.min(limits[field].max, Math.round((currentValue + delta) * 100) / 100));
+    updateSettingsField("customTypography", {
+      ...(workingResume.documentSettings?.customTypography || {}),
+      [field]: nextValue,
+    });
+  }
+
   async function handleFile(file) {
     if (!file) return;
     setUploadInfo({ name: file.name, status: "Reading file...", chars: 0 });
@@ -430,6 +445,10 @@ export function ResumeBuilder({ initialPremium = false }) {
               y += consumedHeight + size * item.after * 0.18;
               return;
             }
+            if (item.type === "spacer") {
+              y += Math.max(6, size * Math.max(item.after || 0.5, 0.5) * 0.8);
+              return;
+            }
             if (item.type === "entry-title") {
               const previousItem = page[itemIndex - 1];
               if (item.metaLine && previousItem?.type === "entry-title" && previousItem.metaLine === item.metaLine) {
@@ -571,6 +590,32 @@ export function ResumeBuilder({ initialPremium = false }) {
           <div className="actions settings-actions">
             <button className="ghost-btn small" type="button" onClick={() => previewFit(1)}>Fit to 1 Page</button>
             <button className="ghost-btn small" type="button" onClick={() => previewFit(2)}>Fit to 2 Pages</button>
+          </div>
+          <div className="font-controls">
+            <div className="font-control">
+              <span>Name</span>
+              <div className="actions">
+                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("nameSize", -0.2)}>-</button>
+                <strong>{Number(pageModel.typography?.nameSize || 19.2).toFixed(1)}pt</strong>
+                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("nameSize", 0.2)}>+</button>
+              </div>
+            </div>
+            <div className="font-control">
+              <span>Headings</span>
+              <div className="actions">
+                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("headingSize", -0.2)}>-</button>
+                <strong>{Number(pageModel.typography?.headingSize || 11).toFixed(1)}pt</strong>
+                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("headingSize", 0.2)}>+</button>
+              </div>
+            </div>
+            <div className="font-control">
+              <span>Content</span>
+              <div className="actions">
+                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("bodySize", -0.2)}>-</button>
+                <strong>{Number(pageModel.typography?.bodySize || 9.8).toFixed(1)}pt</strong>
+                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("bodySize", 0.2)}>+</button>
+              </div>
+            </div>
           </div>
           {!workingResume.documentSettings.settingsConfirmed ? <p className="notice">Document settings must be confirmed before create, upload, or AI conversion flows.</p> : null}
         </section>
@@ -739,7 +784,7 @@ function SectionEditor({ section, index, onPatch, onDelete, onDuplicate, onMove,
   return (
     <section className="form-section">
       <div className="section-title">
-        <input className="section-title-input" value={section.title} onChange={(e) => onPatch(section.id, (current) => ({ ...current, title: e.target.value }))} />
+        <BufferedField className="section-title-input" value={section.title} onCommit={(value) => onPatch(section.id, (current) => ({ ...current, title: value }))} />
         <div className="actions inline-actions">
           <button className="mini-btn" type="button" onClick={() => onMove(section.id, "up")} disabled={index === 0}>Up</button>
           <button className="mini-btn" type="button" onClick={() => onMove(section.id, "down")}>Down</button>
@@ -759,7 +804,7 @@ function SummarySectionEditor({ section, onPatch }) {
   return (
     <label className="field">
       Summary
-      <textarea rows={5} value={section.content?.text || ""} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, text: e.target.value } }))} />
+      <BufferedField as="textarea" rows={5} value={section.content?.text || ""} onCommit={(value) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, text: value } }))} />
     </label>
   );
 }
@@ -779,15 +824,15 @@ function SkillsSectionEditor({ section, onPatch }) {
       {section.layout !== "categorized" ? (
         <label className="field">
           Skills
-          <textarea rows={5} value={items.join(", ")} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, items: normalizeListInput(e.target.value), categories: current.content.categories || [] } }))} />
+          <BufferedField as="textarea" rows={5} value={items.join(", ")} onCommit={(value) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, items: normalizeListInput(value), categories: current.content.categories || [] } }))} />
         </label>
       ) : (
         <>
           {categories.map((category, index) => (
             <div className="item-box" key={`${category.name}-${index}`}>
               <button className="remove" type="button" onClick={() => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: current.content.categories.filter((_, itemIndex) => itemIndex !== index) } }))}>x</button>
-              <label className="field">Category Title<input value={category.name} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: current.content.categories.map((item, itemIndex) => itemIndex === index ? { ...item, name: e.target.value } : item) } }))} /></label>
-              <label className="field">Items<textarea rows={3} value={(category.items || []).join(", ")} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: current.content.categories.map((item, itemIndex) => itemIndex === index ? { ...item, items: normalizeListInput(e.target.value) } : item) } }))} /></label>
+              <label className="field">Category Title<BufferedField value={category.name} onCommit={(value) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: current.content.categories.map((item, itemIndex) => itemIndex === index ? { ...item, name: value } : item) } }))} /></label>
+              <label className="field">Items<BufferedField as="textarea" rows={3} value={(category.items || []).join(", ")} onCommit={(value) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: current.content.categories.map((item, itemIndex) => itemIndex === index ? { ...item, items: normalizeListInput(value) } : item) } }))} /></label>
             </div>
           ))}
           <button className="mini-btn" type="button" onClick={() => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, categories: [...(current.content.categories || []), { name: "Category", items: [] }] } }))}>Add Category</button>
@@ -819,13 +864,13 @@ function EntrySectionEditor({ section, onPatch }) {
       {(section.contentType === "paragraph" || section.contentType === "mixed") ? (
         <label className="field">
           Paragraphs
-          <textarea rows={4} value={paragraphs.join("\n")} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, paragraphs: normalizeTextareaLines(e.target.value) } }))} />
+          <BufferedField as="textarea" rows={4} value={paragraphs.join("\n")} onCommit={(value) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, paragraphs: normalizeTextareaLines(value) } }))} />
         </label>
       ) : null}
       {(section.contentType === "bullets" || section.contentType === "mixed") ? (
         <label className="field">
           Bullets
-          <textarea rows={4} value={bullets.join("\n")} onChange={(e) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, bullets: normalizeTextareaLines(e.target.value) } }))} />
+          <BufferedField as="textarea" rows={4} value={bullets.join("\n")} onCommit={(value) => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, bullets: normalizeTextareaLines(value) } }))} />
         </label>
       ) : null}
       {(section.contentType === "entry" || section.contentType === "mixed" || section.type !== "custom") ? (
@@ -834,18 +879,18 @@ function EntrySectionEditor({ section, onPatch }) {
             <div className="item-box" key={entry.id || index}>
               <button className="remove" type="button" onClick={() => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, entries: current.content.entries.filter((_, itemIndex) => itemIndex !== index) } }))}>x</button>
               <div className="two-col">
-                <label className="field">{labels.title}<input value={entry.title || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { title: e.target.value })} /></label>
-                <label className="field">Date Range<input value={entry.dateRange || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { dateRange: e.target.value })} /></label>
+                <label className="field">{labels.title}<BufferedField value={entry.title || ""} onCommit={(value) => patchEntry(onPatch, section.id, index, { title: value })} /></label>
+                <label className="field">Date Range<BufferedField value={entry.dateRange || ""} onCommit={(value) => patchEntry(onPatch, section.id, index, { dateRange: value })} /></label>
               </div>
               <div className="two-col">
-                <label className="field">{labels.organization}<input value={entry.organization || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { organization: e.target.value })} /></label>
-                <label className="field">{labels.location}<input value={entry.location || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { location: e.target.value })} /></label>
+                <label className="field">{labels.organization}<BufferedField value={entry.organization || ""} onCommit={(value) => patchEntry(onPatch, section.id, index, { organization: value })} /></label>
+                <label className="field">{labels.location}<BufferedField value={entry.location || ""} onCommit={(value) => patchEntry(onPatch, section.id, index, { location: value })} /></label>
               </div>
               {labels.subtitle ? (
-                <label className="field">{labels.subtitle}<input value={entry.subtitle || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { subtitle: e.target.value })} /></label>
+                <label className="field">{labels.subtitle}<BufferedField value={entry.subtitle || ""} onCommit={(value) => patchEntry(onPatch, section.id, index, { subtitle: value })} /></label>
               ) : null}
-              <label className="field">Description<textarea rows={2} value={entry.description || ""} onChange={(e) => patchEntry(onPatch, section.id, index, { description: e.target.value })} /></label>
-              <label className="field">Bullets<textarea rows={4} value={(entry.bullets || []).join("\n")} onChange={(e) => patchEntry(onPatch, section.id, index, { bullets: normalizeTextareaLines(e.target.value) })} /></label>
+              <label className="field">Description<BufferedField as="textarea" rows={2} value={entry.description || ""} onCommit={(value) => patchEntry(onPatch, section.id, index, { description: value })} /></label>
+              <label className="field">Bullets<BufferedField as="textarea" rows={4} value={(entry.bullets || []).join("\n")} onCommit={(value) => patchEntry(onPatch, section.id, index, { bullets: normalizeTextareaLines(value) })} /></label>
             </div>
           ))}
           <button className="mini-btn" type="button" onClick={() => onPatch(section.id, (current) => ({ ...current, content: { ...current.content, entries: [...(current.content.entries || []), createEntry(section.type)] } }))}>Add Entry</button>
@@ -980,6 +1025,7 @@ function AiDiffModal({ proposal, onAccept, onClose }) {
 }
 
 function PreviewBlock({ item }) {
+  if (item.type === "spacer") return <div className="resume-entry-spacer" aria-hidden="true" />;
   if (item.type === "name") return <h1>{item.text}</h1>;
   if (item.type === "heading") return <h2>{formatResumeHeadingLabel(item.text)}</h2>;
   if (item.type === "entry-title") {
@@ -994,8 +1040,52 @@ function PreviewBlock({ item }) {
   }
   if (item.type === "entry-meta") return <p className="resume-meta">{item.text}</p>;
   if (item.type === "bullet") return <ul className="resume-bullet-list"><li>{item.text}</li></ul>;
-  if (item.type === "contact") return <p className="contact-preview">{item.text}</p>;
+  if (item.type === "contact") {
+    return (
+      <p className="contact-preview">
+        {(item.parts || []).map((part, index) => (
+          <span key={`${part.label}-${index}`}>
+            {index > 0 ? <span className="contact-separator"> | </span> : null}
+            {part.url ? <a href={part.url} target="_blank" rel="noreferrer">{part.label}</a> : part.label}
+          </span>
+        ))}
+      </p>
+    );
+  }
   return <p>{item.text}</p>;
+}
+
+function BufferedField({ as = "input", value, onCommit, onBlur, onChange, onFocus, ...props }) {
+  const Component = as;
+  const [draft, setDraft] = useState(String(value ?? ""));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setDraft(String(value ?? ""));
+  }, [focused, value]);
+
+  return (
+    <Component
+      {...props}
+      value={focused ? draft : String(value ?? "")}
+      onFocus={(event) => {
+        setFocused(true);
+        setDraft(event.target.value);
+        onFocus?.(event);
+      }}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        onChange?.(event);
+      }}
+      onBlur={(event) => {
+        const nextValue = event.target.value;
+        setFocused(false);
+        setDraft(nextValue);
+        onCommit?.(nextValue);
+        onBlur?.(event);
+      }}
+    />
+  );
 }
 
 function FormSection({ title, children }) {
@@ -1056,15 +1146,15 @@ function createEntry(type) {
 function normalizeListInput(value) {
   return String(value || "")
     .split(/\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+    .map((item) => item)
+    .filter((item) => item.trim());
 }
 
 function normalizeTextareaLines(value) {
   return String(value || "")
     .split("\n")
-    .map((item) => item.replace(/^[•*-]\s*/, "").trim())
-    .filter(Boolean);
+    .map((item) => item.replace(/^[•*-]\s*/, ""))
+    .filter((item) => item.trim());
 }
 
 function createLocalId() {

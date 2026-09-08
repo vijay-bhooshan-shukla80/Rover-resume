@@ -2202,6 +2202,38 @@ a {
   gap: 8px;
 }
 
+.font-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.font-control {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.36);
+  padding: 10px 12px;
+}
+
+.font-control span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.font-control .actions {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.font-control strong {
+  font-size: 12px;
+  color: #f8fafc;
+}
+
 .section-title-input {
   width: 100%;
   border: none;
@@ -2258,8 +2290,21 @@ a {
   text-wrap: balance;
 }
 
+.contact-preview a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.contact-separator {
+  color: #64748b;
+}
+
 .resume-meta {
   text-align: left !important;
+}
+
+.resume-entry-spacer {
+  height: calc(var(--resume-section-gap, 12px) * 0.55);
 }
 
 .fit-warning-card,

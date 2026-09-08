@@ -122,6 +122,31 @@ test("DOCX export wires document relationships and real bullet numbering", async
   assert.match(documentXml, /<w:numPr><w:ilvl w:val="0"\/><w:numId w:val="1"\/><\/w:numPr>/);
 });
 
+test("DOCX export removes top spacing from the first paragraph after manual page breaks", async () => {
+  let resume = buildRichResume();
+  const experience = resume.sections.find((section) => section.type === "experience");
+  resume = updateDocumentSettings(resume, { settingsConfirmed: true, resumeLength: 2 });
+  resume = updateSection(resume, experience.id, (section) => ({
+    ...section,
+    content: {
+      ...section.content,
+      entries: section.content.entries.map((entry) => ({
+        ...entry,
+        bullets: Array.from({ length: 40 }, (_, bulletIndex) => `Implemented resume export enhancement ${bulletIndex + 1} with detailed handoff notes, QA checks, stakeholder updates, formatting validation, recruiter readability passes, and multi-page Word export review.`),
+      })),
+    },
+  }));
+
+  const model = getPaginatedDocumentModel(resume);
+  assert.ok(model.pages.length >= 2);
+
+  const blob = buildDocxFromCanonical(resume);
+  const { documentXml } = validateDocxBytes(await blob.arrayBuffer());
+  const compactXml = documentXml.replace(/\s+/g, "");
+
+  assert.ok(compactXml.includes('<w:pStylew:val="MetaLine"/><w:pageBreakBefore/><w:spacingw:before="0"w:after="32"/>'));
+});
+
 test("default working resume starts blank and does not expose empty section headings", () => {
   const resume = createDefaultWorkingResume();
 
