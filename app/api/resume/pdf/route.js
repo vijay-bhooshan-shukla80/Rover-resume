@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import { isHarshibar } from "@/lib/harshibar-template";
+import { convertWordToPdf } from "@/lib/local-word-pdf";
 import {
   buildResumeHtmlDocument,
+  buildDocxFromCanonical,
   ensureCanonicalResume,
   getPaginatedDocumentModel,
 } from "@/lib/ai-resume";
@@ -9,13 +12,19 @@ export const runtime = "nodejs";
 
 export async function POST(request) {
   try {
+    const body = await request.json().catch(() => ({}));
+    const resume = ensureCanonicalResume(body?.resume);
+    if (isHarshibar(resume)) {
+      const wordBytes = Buffer.from(await buildDocxFromCanonical(resume).arrayBuffer());
+      return new NextResponse(await convertWordToPdf(wordBytes), {
+        headers: { "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="resume.pdf"', "Cache-Control": "no-store" },
+      });
+    }
     const apiKey = process.env.DOCRAPTOR_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "DocRaptor is not configured on the server." }, { status: 503 });
     }
 
-    const body = await request.json().catch(() => ({}));
-    const resume = ensureCanonicalResume(body?.resume);
     const model = getPaginatedDocumentModel(resume);
     if (model.status !== "fit") {
       return NextResponse.json({ error: "Resume does not currently fit the selected page limit." }, { status: 400 });

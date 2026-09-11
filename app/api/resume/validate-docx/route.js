@@ -12,11 +12,13 @@ export async function POST(request) {
       return NextResponse.json({ ok: false, errors: [`Missing DOCX entries: ${result.missing.join(", ")}`] }, { status: 400 });
     }
     const text = normalizeValidationText(result.text || "");
-    const errors = expected
-      .filter(Boolean)
-      .map((item) => normalizeValidationText(item))
-      .filter((item) => item.length > 2 && !text.includes(item.slice(0, Math.min(item.length, 40))))
-      .map((item) => `Missing expected text: ${item}`);
+    // Word combines title, employer and dates on one line; the preview model
+    // supplies title/date and employer as separate blocks. Validate each field
+    // independently without requiring the preview's field adjacency in Word.
+    const errors = expected.filter(Boolean).filter((item) => {
+      const fields = String(item).split('|').map(normalizeValidationText).filter(field => field.length > 2);
+      return fields.some(field => !text.includes(field.slice(0, Math.min(field.length, 40))));
+    }).map((item) => `Missing expected text: ${normalizeValidationText(item)}`);
     return NextResponse.json({ ok: errors.length === 0, errors, text: result.text });
   } catch (error) {
     return NextResponse.json({ error: error.message || "DOCX validation failed." }, { status: 500 });

@@ -3,13 +3,20 @@ import { analyzeResume, legacyResumeToCanonical } from "@/lib/ai-resume";
 import { autoImproveResume, composeResumeText, localOptimizeResume, normalizeResume, scoreResume, shouldApplyEnhancedResume } from "@/lib/resume";
 import { optimizeWithGemini } from "@/lib/gemini";
 import { getCurrentUserId } from "@/lib/auth";
+import { parseResumeWithGemini } from "@/lib/gemini-resume-import";
+
+export const maxDuration = 120;
 
 export async function POST(request) {
   try {
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { rawText = "", targetRole = "", jobDescription = "", mode = "preserve", baselineScore = null } = await request.json();
+    const { rawText = "", uploadedText = "", targetRole = "", jobDescription = "", mode = "preserve", baselineScore = null } = await request.json();
+    if (mode === "import") {
+      const result = await parseResumeWithGemini({ rawText, uploadedText, targetRole, jobDescription });
+      return NextResponse.json({ ok: true, ...result, provider: "gemini" }, { headers: { "Cache-Control": "no-store" } });
+    }
     if (!String(rawText).trim()) {
       return NextResponse.json({ error: "Please upload or paste resume text before converting." }, { status: 400 });
     }
@@ -81,7 +88,7 @@ export async function POST(request) {
       });
     }
   } catch (error) {
-    return NextResponse.json({ error: error.message || "Resume optimization failed." }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Resume optimization failed." }, { status: error.status || 500 });
   }
 }
 

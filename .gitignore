@@ -11,6 +11,10 @@ dev-server*.log
 !.env.example
 .next/
 .next-local/
+qa-artifacts/
+scratch.txt
+rover-resume-backup*
+*.zip
 
 ## Core latex/pdflatex auxiliary files:
 *.aux

@@ -10,6 +10,7 @@ import {
   applyFitSuggestions,
   buildAiDiff,
   buildDocxFromCanonical,
+  buildResumeHtmlDocument,
   buildTxtExport,
   canBypassPremiumGate,
   canonicalToLegacy,
@@ -22,15 +23,17 @@ import {
   getPaginatedDocumentModel,
   legacyResumeToCanonical,
   moveSection,
-  parseImportedResume,
-  preserveImportedSourceCoverage,
   RESUME_FONT_STACK,
   updateDocumentSettings,
   updateProfileField,
   updateSection,
   updateTargetRole,
   deleteSection,
+  parseImportedResume,
 } from "@/lib/ai-resume";
+import { cleanResumeImportText, MAX_IMPORT_BYTES, pdfTextItemsToLines } from "@/lib/resume-import";
+import { tailorResumeToJobDescription, extractKeywordsFromJd } from "@/lib/jd-optimizer";
+import { applyHarshibarTemplate, isHarshibar, buildHarshibarLatex } from "@/lib/harshibar-template";
 
 const STORAGE_KEY = "ai_resume_maker_v2";
 const LEGACY_STORAGE_KEYS = ["ai_resume_maker_v1"];
@@ -50,6 +53,9 @@ export function ResumeBuilder({ initialPremium = false }) {
   const signedIn = isLoaded ? clerkSignedIn : false;
   const fileInputRef = useRef(null);
   const settingsRef = useRef(null);
+  const importRevisionRef = useRef(0);
+  const importBusyRef = useRef(false);
+  const uploadedSourceRef = useRef("");
   const [workingResume, setWorkingResume] = useState(loadInitialResume);
   const [premium, setPremium] = useState(initialPremium);
   const [jobDescription, setJobDescription] = useState("");
@@ -67,6 +73,13 @@ export function ResumeBuilder({ initialPremium = false }) {
   const [activeTab, setActiveTab] = useState("edit");
   const [enhanceLoading, setEnhanceLoading] = useState(false);
   const [selectedFitIds, setSelectedFitIds] = useState([]);
+  const [jdModalOpen, setJdModalOpen] = useState(false);
+  const [beforeResumeSnapshot, setBeforeResumeSnapshot] = useState(null);
+  const [afterResumeSnapshot, setAfterResumeSnapshot] = useState(null);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [activeResumeVersion, setActiveResumeVersion] = useState("before");
+  const [aiHighlightData, setAiHighlightData] = useState(null);
+  const [tailorLoading, setTailorLoading] = useState(false);
 
   const analysis = useMemo(() => analyzeResume(workingResume, jobDescription), [workingResume, jobDescription]);
   const pageModel = useMemo(() => getPaginatedDocumentModel(workingResume), [workingResume]);
@@ -124,19 +137,22 @@ export function ResumeBuilder({ initialPremium = false }) {
   function startNewResume() {
     if (!requireDocumentSettings()) return;
     const next = createDefaultWorkingResume();
-    next.documentSettings = { ...workingResume.documentSettings, settingsConfirmed: true };
+    const { template, ...preservedSettings } = workingResume.documentSettings || {};
+    next.documentSettings = { ...preservedSettings, settingsConfirmed: true };
     next.jobAnalysis = null;
+    if (typeof setBeforeResumeSnapshot === "function") setBeforeResumeSnapshot(null);
+    if (typeof setAfterResumeSnapshot === "function") setAfterResumeSnapshot(null);
+    if (typeof setActiveResumeVersion === "function") setActiveResumeVersion("before");
+    if (typeof setAiHighlightData === "function") setAiHighlightData(null);
     updateResume(next);
     setJobDescription("");
     setMessage("Blank resume ready.");
   }
 
   function openUpload() {
-    confirmDocumentSettingsSilently();
     setImportOpen(true);
     setImportError("");
     setUploadTargetRole(workingResume.targetRole || "");
-    setUploadInfo(null);
     setMessage("Upload PDF, DOCX, or TXT, then convert it into the canonical resume editor.");
   }
 
@@ -193,9 +209,14 @@ export function ResumeBuilder({ initialPremium = false }) {
 
   async function handleFile(file) {
     if (!file) return;
+    if (importBusyRef.current) return;
+    importRevisionRef.current += 1;
+    importBusyRef.current = true;
+    setImportLoading(true);
     setUploadInfo({ name: file.name, status: "Reading file...", chars: 0 });
     const lower = file.name.toLowerCase();
     try {
+      if (file.size > MAX_IMPORT_BYTES) throw new Error("Resume files must be 10 MB or smaller.");
       let text = "";
       if (lower.endsWith(".pdf")) {
         text = await readPdf(file);
@@ -211,7 +232,11 @@ export function ResumeBuilder({ initialPremium = false }) {
       } else {
         throw new Error("Use PDF, DOCX, TXT, MD, or CSV files.");
       }
-      setImportText(text);
+      text = cleanResumeImportText(text);
+      if (!text.trim()) throw new Error("No readable text found. For scanned resumes, paste OCR text into Raw import text.");
+      const previousSource = uploadedSourceRef.current;
+      uploadedSourceRef.current = text;
+      setImportText((current) => !current.trim() || current === previousSource ? text : current);
       setUploadInfo({ name: file.name, status: "Source text extracted", chars: text.length, fileType: file.type || lower });
       setImportError("");
       setMessage("Resume source extracted. Click Convert Resume.");
@@ -219,83 +244,72 @@ export function ResumeBuilder({ initialPremium = false }) {
       setUploadInfo({ name: file.name, status: "Parsing failed", chars: 0, fileType: file.type || lower });
       setImportError(error.message || "Resume parsing failed.");
       setMessage(error.message || "Resume parsing failed.");
-    }
-  }
-
-  async function convertImportedResume() {
-    if (!String(importText || "").trim()) {
-      setMessage("Paste or upload resume text before conversion.");
-      return;
-    }
-    setImportLoading(true);
-    setImportError("");
-    try {
-      let canonical = parseImportedResume(importText, {
-        targetRole: uploadTargetRole,
-        documentSettings: workingResume.documentSettings,
-        fileName: uploadInfo?.name || "",
-        fileType: uploadInfo?.fileType || "text/plain",
-      });
-      canonical = preserveImportedSourceCoverage(canonical, importText);
-      canonical.documentSettings = { ...workingResume.documentSettings, settingsConfirmed: true };
-      canonical.versionSnapshots = {
-        originalResume: canonicalToLegacy(canonical),
-        workingResume: null,
-        lastAIEnhancedResume: null,
-      };
-      updateResume(canonical);
-      setImportOpen(false);
-      setMessage("Resume converted locally with source recovery, so skipped upload text stays preserved.");
-    } catch (error) {
-      setImportError(error.message || "Resume conversion failed.");
-      setMessage(error.message || "Resume conversion failed.");
     } finally {
+      importBusyRef.current = false;
       setImportLoading(false);
     }
   }
 
-  async function enhanceResume() {
-    const sourceText = canonicalToPlainText(workingResume);
-    if (!sourceText.trim()) {
-      setMessage("Add resume content before running AI enhancement.");
+  async function convertImportedResume() {
+    if (importBusyRef.current) return;
+    if (!String(importText || uploadedSourceRef.current).trim()) {
+      setMessage("Paste or upload resume text before conversion.");
       return;
     }
     if (!signedIn) {
       setAuthGateOpen(true);
       return;
     }
-    setEnhanceLoading(true);
+    const revision = importRevisionRef.current;
+    importBusyRef.current = true;
+    setImportLoading(true);
+    setImportError("");
     try {
       const response = await fetch("/api/resume/optimize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({
-          rawText: sourceText,
-          targetRole: workingResume.targetRole,
-          jobDescription,
-          mode: "enhance",
-        }),
+        body: JSON.stringify({ mode: "import", rawText: importText, uploadedText: uploadedSourceRef.current, targetRole: uploadTargetRole, jobDescription }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "AI enhancement failed.");
-      const next = legacyResumeToCanonical(payload.resume, workingResume.documentSettings, workingResume.rawImport);
-      const diff = buildAiDiff(workingResume, next);
-      if (!diff.length) {
-        setMessage("AI returned no meaningful content changes.");
-        return;
-      }
-      setAiProposal({
-        resume: next,
-        diff,
-        beforeScore: analysis.readinessScore,
-        afterScore: analyzeResume(next, jobDescription).readinessScore,
-      });
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "Resume conversion failed. Your current resume is unchanged.");
+      if (revision !== importRevisionRef.current) throw new Error("Import inputs changed during conversion. Convert again to use your latest text.");
+      if (!payload.resume?.profile || !Array.isArray(payload.resume.sections) || !payload.resume.sections.length) throw new Error("The import response was incomplete. Your current resume is unchanged.");
+      const canonical = ensureCanonicalResume(payload.resume);
+      canonical.rawImport = { ...canonical.rawImport, fileName: uploadInfo?.name || "", fileType: uploadInfo?.fileType || "text/plain" };
+      const { template, ...preservedSettings } = workingResume.documentSettings || {};
+      canonical.documentSettings = { ...preservedSettings, settingsConfirmed: true };
+      canonical.versionSnapshots = {
+        originalResume: canonicalToLegacy(canonical),
+        workingResume: null,
+        lastAIEnhancedResume: null,
+      };
+      if (typeof setBeforeResumeSnapshot === "function") setBeforeResumeSnapshot(null);
+      if (typeof setAfterResumeSnapshot === "function") setAfterResumeSnapshot(null);
+      if (typeof setActiveResumeVersion === "function") setActiveResumeVersion("before");
+      if (typeof setAiHighlightData === "function") setAiHighlightData(null);
+      updateResume(canonical);
+      setImportOpen(false);
+      uploadedSourceRef.current = "";
+      setImportText("");
+      setUploadInfo(null);
+      setMessage("Resume rebuilt successfully from your source with Gemini. Review and edit your imported details.");
     } catch (error) {
-      setMessage(error.message || "AI enhancement failed.");
+      setImportError(error.message || "Resume conversion failed.");
+      setMessage(error.message || "Resume conversion failed.");
     } finally {
-      setEnhanceLoading(false);
+      importBusyRef.current = false;
+      setImportLoading(false);
     }
+  }
+
+  async function enhanceResume() {
+    if (!jobDescription.trim() && !workingResume.targetRole.trim()) {
+      openJdTailorModal();
+      setMessage("Please enter Target Role or Job Description to optimize for 95+ ATS score.");
+      return;
+    }
+    await handleQuickJdTailor();
   }
 
   function acceptAiProposal() {
@@ -313,13 +327,127 @@ export function ResumeBuilder({ initialPremium = false }) {
   }
 
   function undoAiChanges() {
+    if (beforeResumeSnapshot) {
+      setWorkingResume(structuredClone(beforeResumeSnapshot));
+      setActiveResumeVersion("before");
+      setMessage("AI changes restored to the original before version.");
+      return;
+    }
     const previous = workingResume.versionSnapshots?.lastAIEnhancedResume;
     if (!previous) {
       setMessage("No AI changes are available to undo.");
       return;
     }
     updateResume(previous);
+    setActiveResumeVersion("before");
     setMessage("AI changes restored to the previous approved version.");
+  }
+
+  function openJdTailorModal() {
+    setJdModalOpen(true);
+  }
+
+  function closeJdTailorModal() {
+    setJdModalOpen(false);
+  }
+
+  function switchResumeVersion(version) {
+    if (version === "before") {
+      if (activeResumeVersion === "after") {
+        setAfterResumeSnapshot(structuredClone(workingResume));
+      }
+      if (beforeResumeSnapshot) {
+        setWorkingResume(structuredClone(beforeResumeSnapshot));
+      }
+      setActiveResumeVersion("before");
+      setMessage("Showing Before Resume (Original pre-enhancement).");
+    } else if (version === "after") {
+      if (activeResumeVersion === "before") {
+        setBeforeResumeSnapshot(structuredClone(workingResume));
+      }
+      if (afterResumeSnapshot) {
+        setWorkingResume(structuredClone(afterResumeSnapshot));
+        setActiveResumeVersion("after");
+        setMessage("Showing After Resume (95+ ATS) with highlighted changes.");
+      } else {
+        openJdTailorModal();
+        setMessage("Enter Job Title and Description to generate your 95+ ATS After Resume!");
+      }
+    }
+  }
+
+  function applyJdTailoredResume(tailoredResume, newJobDescription, highlightInfo) {
+    const snapshotBefore = structuredClone(beforeResumeSnapshot || workingResume);
+    setBeforeResumeSnapshot(snapshotBefore);
+
+    const highlight = highlightInfo || tailoredResume.aiHighlightData || null;
+    const next = {
+      ...applyHarshibarTemplate(tailoredResume),
+      aiHighlightData: highlight,
+      versionSnapshots: {
+        ...workingResume.versionSnapshots,
+        originalResume: snapshotBefore,
+        lastAIEnhancedResume: structuredClone(snapshotBefore),
+      },
+    };
+
+    setAfterResumeSnapshot(structuredClone(next));
+    setAiHighlightData(highlight);
+    updateResume(next);
+    setActiveResumeVersion("after");
+
+    if (newJobDescription) {
+      setJobDescription(newJobDescription);
+    }
+    setJdModalOpen(false);
+    setMessage("Resume tailored successfully with 95+ ATS score! Highlighted points show Gemini/AI changes.");
+  }
+
+  async function handleQuickJdTailor() {
+    if (!jobDescription.trim() && !workingResume.targetRole.trim()) {
+      setMessage("Please enter Target Role or Job Description.");
+      return;
+    }
+    setTailorLoading(true);
+    setMessage("Tailoring resume to 95+ ATS score with JD keywords...");
+    try {
+      const res = await fetch("/api/resume/tailor-jd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resume: workingResume,
+          jobTitle: workingResume.targetRole,
+          jobDescription,
+          targetPages: workingResume.documentSettings?.resumeLength || 1,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok && data.resume) {
+        applyJdTailoredResume(data.resume, jobDescription, data.highlightData || {
+          addedKeywords: data.addedKeywords || [],
+          changedBullets: data.changedBullets || [],
+          summaryChanged: Boolean(data.summaryChanged),
+        });
+        return;
+      }
+      const clientResult = tailorResumeToJobDescription({
+        resume: workingResume,
+        jobTitle: workingResume.targetRole,
+        jobDescription,
+        targetPages: workingResume.documentSettings?.resumeLength || 1,
+      });
+      applyJdTailoredResume(clientResult.optimizedResume, jobDescription, clientResult.highlightData);
+    } catch (err) {
+      const clientResult = tailorResumeToJobDescription({
+        resume: workingResume,
+        jobTitle: workingResume.targetRole,
+        jobDescription,
+        targetPages: workingResume.documentSettings?.resumeLength || 1,
+      });
+      applyJdTailoredResume(clientResult.optimizedResume, jobDescription, clientResult.highlightData);
+    } finally {
+      setTailorLoading(false);
+    }
   }
 
   function previewFit(targetPages) {
@@ -382,8 +510,19 @@ export function ResumeBuilder({ initialPremium = false }) {
     });
   }
 
+  function downloadLatex() {
+    requirePremium(() => {
+      const texContent = buildHarshibarLatex(workingResume);
+      const blob = new Blob([texContent], { type: "application/x-tex;charset=utf-8" });
+      downloadFile(blob, getDownloadBaseName(workingResume, "tex"));
+      setMessage("LaTeX export downloaded. Ready for Overleaf.");
+    });
+  }
+
   async function downloadPdf() {
+    if (typeof pdfDownloading !== "undefined" && pdfDownloading) return;
     requirePremium(async () => {
+      if (typeof setPdfDownloading === "function") setPdfDownloading(true);
       try {
         const response = await fetch("/api/resume/pdf", {
           method: "POST",
@@ -407,6 +546,8 @@ export function ResumeBuilder({ initialPremium = false }) {
           setMessage("PDF export downloaded.");
           return;
         }
+        const isHarshibarTemplate = typeof isHarshibar === "function" ? isHarshibar(workingResume) : workingResume?.template === "harshibar";
+        if (isHarshibarTemplate) throw new Error(payload?.error || "Template PDF export failed. Please retry.");
         console.warn("Falling back to client PDF export:", payload?.details || payload?.error || "PDF generation failed.");
 
         const { jsPDF } = await import("jspdf");
@@ -512,6 +653,8 @@ export function ResumeBuilder({ initialPremium = false }) {
         setMessage("PDF export downloaded.");
       } catch (error) {
         setMessage(error.message || "PDF generation failed.");
+      } finally {
+        if (typeof setPdfDownloading === "function") setPdfDownloading(false);
       }
     });
   }
@@ -529,6 +672,31 @@ export function ResumeBuilder({ initialPremium = false }) {
         <button className="side-link active" type="button">AI Resume Maker</button>
         <button className="side-link" type="button" onClick={startNewResume}>Create Resume</button>
         <button className="side-link" type="button" onClick={openUpload}>Upload Resume</button>
+        <button className="side-link jd-highlight-link" type="button" onClick={openJdTailorModal}>🎯 Match JD (95+ ATS)</button>
+
+        <div className="sidebar-version-group">
+          <div className="sidebar-group-title">Resume Versions</div>
+          <button
+            className={`side-link version-btn ${activeResumeVersion === "before" ? "active" : ""}`}
+            type="button"
+            onClick={() => switchResumeVersion("before")}
+          >
+            <span className="version-btn-content">
+              <span>📄 Before Resume</span>
+            </span>
+          </button>
+          <button
+            className={`side-link version-btn ${activeResumeVersion === "after" ? "active" : ""}`}
+            type="button"
+            onClick={() => switchResumeVersion("after")}
+          >
+            <span className="version-btn-content">
+              <span>✨ After Resume</span>
+              <span className="version-badge">95+ ATS</span>
+            </span>
+          </button>
+        </div>
+
         <button className="side-link" type="button" onClick={undoAiChanges}>Undo AI Changes</button>
         <Link className="side-link" href="/">Home</Link>
         <p className="side-note">Canonical resume editing, ATS analysis, A4 preview parity, and validated exports.</p>
@@ -641,8 +809,33 @@ export function ResumeBuilder({ initialPremium = false }) {
               </div>
             </FormSection>
 
-            <FormSection title="Job Description">
-              <label className="field">Paste Job Description<textarea rows={5} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} placeholder="Paste responsibilities, tools, qualifications, or hiring requirements." /></label>
+            <FormSection title="Job Description & ATS Optimization">
+              <label className="field">
+                Paste Job Description
+                <textarea
+                  rows={5}
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  placeholder="Paste responsibilities, tools, qualifications, or hiring requirements."
+                />
+              </label>
+              <div className="actions" style={{ marginTop: 10, display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <button
+                  className="primary-btn small"
+                  type="button"
+                  onClick={handleQuickJdTailor}
+                  disabled={tailorLoading}
+                >
+                  {tailorLoading ? "Tailoring to 95+ ATS..." : "🎯 Tailor Resume to this JD (95+ ATS)"}
+                </button>
+                <button
+                  className="ghost-btn small"
+                  type="button"
+                  onClick={openJdTailorModal}
+                >
+                  Upload JD / Options
+                </button>
+              </div>
             </FormSection>
 
             <FormSection title="Section Library">
@@ -671,13 +864,32 @@ export function ResumeBuilder({ initialPremium = false }) {
 
           <aside className={`preview-wrap ${activeTab === "edit" ? "mobile-hidden-preview" : ""}`}>
             <div className="preview-head">
-              <strong>AI Resume Maker Preview</strong>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <strong>AI Resume Maker Preview</strong>
+                <span className={`preview-version-pill ${activeResumeVersion}`}>
+                  {activeResumeVersion === "after" ? "✨ After Resume (95+ ATS)" : "📄 Before Resume"}
+                </span>
+              </div>
               <div className="actions preview-actions">
                 <button className="primary-btn small" type="button" onClick={enhanceResume} disabled={enhanceLoading}>{enhanceLoading ? "Enhancing..." : "Enhance Resume"}</button>
                 <button className="ghost-btn small" type="button" onClick={downloadTxt}>Download TXT</button>
                 <button className="ghost-btn small" type="button" onClick={downloadDocx}>Download Word (.docx)</button>
+                {isHarshibar(workingResume) && <button className="ghost-btn small" type="button" onClick={downloadLatex}>Download LaTeX</button>}
+                {isHarshibar(workingResume) && <button className="ghost-btn small" type="button" onClick={downloadPdf} disabled={pdfDownloading}>{pdfDownloading ? "Preparing PDF..." : "Download PDF"}</button>}
               </div>
             </div>
+
+            {activeResumeVersion === "after" ? (
+              <div className="preview-version-banner after">
+                <span>✨ <strong>After Resume (95+ ATS)</strong>: Points and keywords enhanced by Gemini/AI are <span className="sample-highlight">highlighted</span>.</span>
+                <button className="ghost-btn mini-btn" type="button" onClick={() => switchResumeVersion("before")}>View Before</button>
+              </div>
+            ) : (
+              <div className="preview-version-banner before">
+                <span>📄 <strong>Before Resume</strong>: Showing original pre-enhancement version.</span>
+                <button className="primary-btn mini-btn" type="button" onClick={() => switchResumeVersion("after")}>View 95+ ATS After</button>
+              </div>
+            )}
 
             {pageModel.status !== "fit" ? (
               <div className="fit-warning-card">
@@ -690,14 +902,23 @@ export function ResumeBuilder({ initialPremium = false }) {
             ) : null}
 
             <div className="resume-preview-shell paged-preview-shell">
-              {pageModel.pages.map((page, pageIndex) => (
+              {isHarshibar(workingResume) ? (
+                <HarshibarPreview resume={workingResume} pageCount={pageModel.pageCount} />
+              ) : pageModel.pages.map((page, pageIndex) => (
                 <article className="paper resume-paper paged-paper" key={`page-${pageIndex}`} style={resumePaperStyle(pageModel)}>
                   <span className="page-chip">Page {pageIndex + 1}</span>
                   {page.map((item, itemIndex) => {
                     if (item.type === "entry-meta" && page[itemIndex - 1]?.type === "entry-title" && page[itemIndex - 1]?.metaLine === item.text) {
                       return null;
                     }
-                    return <PreviewBlock key={`${pageIndex}-${itemIndex}`} item={item} />;
+                    return (
+                      <PreviewBlock
+                        key={`${pageIndex}-${itemIndex}`}
+                        item={item}
+                        isAfterMode={activeResumeVersion === "after"}
+                        highlightData={aiHighlightData}
+                      />
+                    );
                   })}
                 </article>
               ))}
@@ -743,9 +964,9 @@ export function ResumeBuilder({ initialPremium = false }) {
           importError={importError}
           targetRole={uploadTargetRole}
           jobDescription={jobDescription}
-          setImportText={setImportText}
-          setTargetRole={setUploadTargetRole}
-          setJobDescription={setJobDescription}
+          setImportText={(value) => { importRevisionRef.current += 1; setImportText(value); }}
+          setTargetRole={(value) => { importRevisionRef.current += 1; setUploadTargetRole(value); }}
+          setJobDescription={(value) => { importRevisionRef.current += 1; setJobDescription(value); }}
           onClose={() => !importLoading && setImportOpen(false)}
           onFile={handleFile}
           onConvert={convertImportedResume}
@@ -773,6 +994,16 @@ export function ResumeBuilder({ initialPremium = false }) {
 
       {upgradeOpen ? <UpgradeModal onClose={() => setUpgradeOpen(false)} onBuyNow={() => (window.location.href = "/pricing")} /> : null}
       {authGateOpen ? <LoginPromptModal onClose={() => setAuthGateOpen(false)} /> : null}
+      {jdModalOpen ? (
+        <JdTailorModal
+          currentResume={workingResume}
+          currentJobDescription={jobDescription}
+          onClose={closeJdTailorModal}
+          onApply={applyJdTailoredResume}
+          readPdf={readPdf}
+          setMessage={setMessage}
+        />
+      ) : null}
       {message ? <Toast type={toastType} message={message} onClose={() => setMessage("")} /> : null}
 
       <input ref={fileInputRef} className="sr-only" type="file" accept=".txt,.md,.csv,.pdf,.docx,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => handleFile(e.target.files?.[0])} />
@@ -1024,7 +1255,60 @@ function AiDiffModal({ proposal, onAccept, onClose }) {
   );
 }
 
-function PreviewBlock({ item }) {
+function escapeRegexForHighlight(str) {
+  return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renderHighlightedText(text, keywords = []) {
+  if (!text || !keywords || !keywords.length) return text;
+  const validKeywords = keywords
+    .map((k) => String(k || "").trim())
+    .filter((k) => k.length >= 2 && !/^(and|for|with|the|that|this|from|into|over|under|your|their)$/i.test(k));
+
+  if (!validKeywords.length) return text;
+  validKeywords.sort((a, b) => b.length - a.length);
+
+  try {
+    const escapedPatterns = validKeywords.map(escapeRegexForHighlight).join("|");
+    const pattern = new RegExp(`(${escapedPatterns})`, "gi");
+    const parts = text.split(pattern);
+    if (parts.length <= 1) return text;
+
+    return parts.map((part, index) => {
+      const isMatch = validKeywords.some((kw) => kw.toLowerCase() === part.toLowerCase());
+      if (isMatch) {
+        return (
+          <mark key={index} className="ai-keyword-mark" title="ATS Keyword added or matched by AI">
+            {part}
+          </mark>
+        );
+      }
+      return part;
+    });
+  } catch {
+    return text;
+  }
+}
+
+function HarshibarPreview({ resume, pageCount }) {
+  const frameShell = useRef(null);
+  const [scale, setScale] = useState(1);
+  const html = useMemo(() => buildResumeHtmlDocument(resume), [resume]);
+  useEffect(() => {
+    const shell = frameShell.current;
+    if (!shell) return;
+    const resize = () => setScale(Math.min(1, shell.clientWidth / 816));
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, []);
+  return <div ref={frameShell} style={{ position: "relative", width: "100%", minWidth: 0, height: pageCount * 1056 * scale, overflow: "hidden", background: "white" }}>
+    <iframe title="After Resume — template preview" sandbox="" srcDoc={html} style={{ position: "absolute", inset: 0, border: 0, width: 816, maxWidth: "none", height: pageCount * 1056, transform: `scale(${scale})`, transformOrigin: "top left", background: "white" }} />
+  </div>;
+}
+
+function PreviewBlock({ item, isAfterMode = false, highlightData = null }) {
   if (item.type === "spacer") return <div className="resume-entry-spacer" aria-hidden="true" />;
   if (item.type === "name") return <h1>{item.text}</h1>;
   if (item.type === "heading") return <h2>{formatResumeHeadingLabel(item.text)}</h2>;
@@ -1033,13 +1317,38 @@ function PreviewBlock({ item }) {
     const combinedLeft = [left, item.metaLine].filter(Boolean).join(" | ");
     return (
       <div className="resume-row">
-        <strong>{combinedLeft || left}</strong>
+        <strong>
+          {isAfterMode && highlightData?.addedKeywords?.length
+            ? renderHighlightedText(combinedLeft || left, highlightData.addedKeywords)
+            : (combinedLeft || left)}
+        </strong>
         {right ? <strong className="resume-row-date">{right}</strong> : null}
       </div>
     );
   }
   if (item.type === "entry-meta") return <p className="resume-meta">{item.text}</p>;
-  if (item.type === "bullet") return <ul className="resume-bullet-list"><li>{item.text}</li></ul>;
+  if (item.type === "bullet") {
+    const bulletText = item.text || "";
+    const isChangedBullet = isAfterMode && Boolean(
+      (highlightData?.changedBullets || []).some(
+        (cb) => cb.trim().toLowerCase() === bulletText.trim().toLowerCase() || bulletText.toLowerCase().includes(cb.slice(0, 25).toLowerCase())
+      ) ||
+      (highlightData?.addedKeywords || []).some(
+        (kw) => bulletText.toLowerCase().includes(kw.toLowerCase())
+      )
+    );
+
+    return (
+      <ul className="resume-bullet-list">
+        <li className={isChangedBullet ? "ai-highlight-bullet" : ""}>
+          
+          {isAfterMode && highlightData?.addedKeywords?.length
+            ? renderHighlightedText(bulletText, highlightData.addedKeywords)
+            : bulletText}
+        </li>
+      </ul>
+    );
+  }
   if (item.type === "contact") {
     return (
       <p className="contact-preview">
@@ -1052,7 +1361,18 @@ function PreviewBlock({ item }) {
       </p>
     );
   }
-  return <p>{item.text}</p>;
+
+  const paragraphText = item.text || "";
+  const isSummaryParagraph = isAfterMode && highlightData?.summaryChanged;
+
+  return (
+    <p className={isSummaryParagraph ? "ai-summary-highlight" : ""}>
+      
+      {isAfterMode && highlightData?.addedKeywords?.length
+        ? renderHighlightedText(paragraphText, highlightData.addedKeywords)
+        : paragraphText}
+    </p>
+  );
 }
 
 function BufferedField({ as = "input", value, onCommit, onBlur, onChange, onFocus, ...props }) {
@@ -1166,47 +1486,38 @@ function capitalize(value) {
 }
 
 function loadInitialResume() {
-  if (typeof window === "undefined") return ensureCanonicalResume(createDefaultWorkingResume());
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return ensureCanonicalResume(createDefaultWorkingResume());
-    return ensureCanonicalResume(JSON.parse(stored));
-  } catch {
+  if (typeof window !== "undefined") {
     try {
       window.localStorage.removeItem(STORAGE_KEY);
       LEGACY_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
     } catch {}
-    return ensureCanonicalResume(createDefaultWorkingResume());
   }
+  return ensureCanonicalResume(createDefaultWorkingResume());
 }
 
 async function readPdf(file) {
   const pdfjsLib = await loadPdfJs();
-  const doc = await pdfjsLib.getDocument({ data: await file.arrayBuffer(), disableWorker: true }).promise;
+  const loadingTask = pdfjsLib.getDocument({ data: await file.arrayBuffer(), disableWorker: true });
+  const doc = await loadingTask.promise;
   const pages = [];
-  for (let pageNum = 1; pageNum <= doc.numPages; pageNum += 1) {
-    const page = await doc.getPage(pageNum);
-    const content = await page.getTextContent();
-    pages.push(
-      content.items
-        .map((item) => String(item.str || "").trim())
-        .filter(Boolean)
-        .join(" "),
-    );
+  try {
+    for (let pageNum = 1; pageNum <= doc.numPages; pageNum += 1) {
+      const page = await doc.getPage(pageNum);
+      const content = await page.getTextContent();
+      const text = pdfTextItemsToLines(content.items);
+      if (!text.trim()) throw new Error(`Page ${pageNum} contains no readable text. Paste OCR text into Raw import text to include scanned pages.`);
+      const annotations = await page.getAnnotations();
+      const links = [...new Set(annotations.map((item) => item.url).filter((url) => /^https?:\/\//i.test(url || "")))];
+      pages.push([text, ...links.filter((url) => !text.includes(url))].join("\n"));
+    }
+    return normalizeUploadedResumeText(pages.join("\n\n"));
+  } finally {
+    await loadingTask.destroy();
   }
-  return normalizeUploadedResumeText(pages.join("\n\n"));
 }
 
 function normalizeUploadedResumeText(value) {
-  return String(value || "")
-    .replace(/\r\n?/g, "\n")
-    .replace(/\u00a0/g, " ")
-    .replace(/[\u2022\u25cf\u25aa]/g, "\n- ")
-    .replace(/[\u2013\u2014]/g, "-")
-    .split("\n")
-    .map((line) => line.replace(/[ \t]{2,}/g, " ").trim())
-    .filter(Boolean)
-    .join("\n");
+  return cleanResumeImportText(value);
 }
 
 function downloadFile(blob, fileName) {
@@ -1431,4 +1742,372 @@ async function loadPdfJs() {
       });
   }
   return pdfJsPromise;
+}
+
+
+function JdTailorModal({
+  currentResume,
+  currentJobDescription,
+  onClose,
+  onApply,
+  readPdf,
+  setMessage,
+}) {
+  const [jobTitle, setJobTitle] = useState(currentResume.targetRole || "");
+  const [jobDescription, setJobDescription] = useState(currentJobDescription || "");
+  const [resumeMode, setResumeMode] = useState("current");
+  const [uploadedResume, setUploadedResume] = useState(null);
+  const [uploadedResumeName, setUploadedResumeName] = useState("");
+  const [jdFileName, setJdFileName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState("");
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+  const [targetPages, setTargetPages] = useState(currentResume.documentSettings?.resumeLength || 1);
+
+  const targetResume = resumeMode === "upload" && uploadedResume ? uploadedResume : currentResume;
+  const currentAnalysis = useMemo(() => analyzeResume(targetResume, jobDescription), [targetResume, jobDescription]);
+
+  async function handleJdFile(file) {
+    if (!file) return;
+    setLoading(true);
+    setLoadingStep("Reading Job Description file...");
+    setError("");
+    try {
+      const lower = file.name.toLowerCase();
+      let text = "";
+      if (lower.endsWith(".pdf")) {
+        text = await readPdf(file);
+      } else if (lower.endsWith(".docx")) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/resume/parse-docx", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "DOCX parsing failed.");
+        text = data.text || "";
+      } else {
+        text = await file.text();
+      }
+      text = cleanResumeImportText(text);
+      if (!text.trim()) throw new Error("No readable text found in JD file.");
+      setJobDescription(text);
+      setJdFileName(`${file.name} (${text.length} chars)`);
+
+      if (!jobTitle) {
+        const extracted = extractKeywordsFromJd(text, "");
+        if (extracted.detectedRole) setJobTitle(extracted.detectedRole);
+      }
+    } catch (err) {
+      setError(err.message || "Failed to parse JD file.");
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  async function handleResumeFile(file) {
+    if (!file) return;
+    setLoading(true);
+    setLoadingStep("Reading & parsing uploaded resume...");
+    setError("");
+    try {
+      const lower = file.name.toLowerCase();
+      let text = "";
+      if (lower.endsWith(".pdf")) {
+        text = await readPdf(file);
+      } else if (lower.endsWith(".docx")) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/resume/parse-docx", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "DOCX parsing failed.");
+        text = data.text || "";
+      } else {
+        text = await file.text();
+      }
+      text = cleanResumeImportText(text);
+      if (!text.trim()) throw new Error("No readable text found in resume file.");
+      const parsed = parseImportedResume(text, jobTitle || "Professional");
+      setUploadedResume(parsed);
+      setUploadedResumeName(file.name);
+      if (!jobTitle && parsed.targetRole) {
+        setJobTitle(parsed.targetRole);
+      }
+      setResumeMode("upload");
+    } catch (err) {
+      setError(err.message || "Failed to read resume file.");
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  async function runOptimization() {
+    if (!jobDescription.trim() && !jobTitle.trim()) {
+      setError("Please enter a Target Job Title or Job Description.");
+      return;
+    }
+    setLoading(true);
+    setLoadingStep("Extracting keywords & tailoring resume to 95+ ATS score...");
+    setError("");
+    const chosenPages = Number(targetPages) || 1;
+    try {
+      const res = await fetch("/api/resume/tailor-jd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resume: targetResume,
+          jobTitle: jobTitle || targetResume.targetRole,
+          jobDescription,
+          targetPages: chosenPages,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setResult(data);
+        return;
+      }
+      const clientResult = tailorResumeToJobDescription({
+        resume: targetResume,
+        jobTitle: jobTitle || targetResume.targetRole,
+        jobDescription,
+        targetPages: chosenPages,
+      });
+      setResult({
+        resume: clientResult.optimizedResume,
+        beforeScore: clientResult.beforeAnalysis?.readinessScore,
+        afterScore: clientResult.afterAnalysis?.readinessScore,
+        beforeMatchScore: clientResult.beforeAnalysis?.jobMatchScore,
+        afterMatchScore: clientResult.afterAnalysis?.jobMatchScore,
+        matchedKeywords: clientResult.matchedKeywords,
+        addedKeywords: clientResult.addedKeywords,
+        diff: clientResult.diff,
+      });
+    } catch (err) {
+      const clientResult = tailorResumeToJobDescription({
+        resume: targetResume,
+        jobTitle: jobTitle || targetResume.targetRole,
+        jobDescription,
+        targetPages: chosenPages,
+      });
+      setResult({
+        resume: clientResult.optimizedResume,
+        beforeScore: clientResult.beforeAnalysis?.readinessScore,
+        afterScore: clientResult.afterAnalysis?.readinessScore,
+        beforeMatchScore: clientResult.beforeAnalysis?.jobMatchScore,
+        afterMatchScore: clientResult.afterAnalysis?.jobMatchScore,
+        matchedKeywords: clientResult.matchedKeywords,
+        addedKeywords: clientResult.addedKeywords,
+        diff: clientResult.diff,
+      });
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  function handleApply() {
+    if (!result?.resume) return;
+    onApply(result.resume, jobDescription, result.highlightData || {
+      addedKeywords: result.addedKeywords || [],
+      changedBullets: result.changedBullets || [],
+      summaryChanged: Boolean(result.summaryChanged),
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal-card upload-modal jd-modal-card">
+        <button className="popup-close" type="button" onClick={onClose}>x</button>
+        <p className="eyebrow">AI RESUME MAKER • ATS OPTIMIZER</p>
+        <h2>Tailor Resume to Job Description (95+ ATS Score)</h2>
+        <p className="muted-small">
+          Upload or paste your Job Title & Description. The engine will extract ATS keywords, align your summary, integrate missing skills, and enhance bullet points to guarantee a 95+ score.
+        </p>
+
+        <div className="jd-toggle-group">
+          <button
+            className={`jd-toggle-btn ${resumeMode === "current" ? "active" : ""}`}
+            type="button"
+            onClick={() => setResumeMode("current")}
+          >
+            📋 Use Current Resume ({currentResume.profile?.fullName || "Current"} • {currentAnalysis.readinessScore ?? 0}/100 ATS)
+          </button>
+          <button
+            className={`jd-toggle-btn ${resumeMode === "upload" ? "active" : ""}`}
+            type="button"
+            onClick={() => setResumeMode("upload")}
+          >
+            📂 Upload New Resume {uploadedResumeName ? `(${uploadedResumeName})` : "(.pdf, .docx, .txt)"}
+          </button>
+        </div>
+
+        {resumeMode === "upload" ? (
+          <div className="jd-file-upload-row">
+            <span>{uploadedResumeName ? `Selected: ${uploadedResumeName}` : "Choose a resume file (.pdf, .docx, .txt)"}</span>
+            <label>
+              Upload Resume
+              <input
+                type="file"
+                accept=".txt,.md,.csv,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={(e) => handleResumeFile(e.target.files?.[0])}
+              />
+            </label>
+          </div>
+        ) : null}
+
+        <div className="two-col" style={{ marginTop: 12 }}>
+          <label className="field">
+            Target Job Title / Role
+            <input
+              placeholder="e.g. Senior Frontend Engineer, Customer Support Specialist..."
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+            />
+          </label>
+          <div className="field">
+            <span style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 700, color: "var(--soft)" }}>
+              Upload JD Document (Optional)
+            </span>
+            <div className="jd-file-upload-row" style={{ margin: 0, padding: "8px 12px" }}>
+              <span style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "220px" }}>
+                {jdFileName || "Auto-fill from .txt, .pdf, or .docx"}
+              </span>
+              <label style={{ padding: "4px 10px", fontSize: 11 }}>
+                Browse File
+                <input
+                  type="file"
+                  accept=".txt,.md,.csv,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={(e) => handleJdFile(e.target.files?.[0])}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <label className="field" style={{ marginTop: 12 }}>
+          Job Description
+          <textarea
+            rows={5}
+            placeholder="Paste responsibilities, qualifications, tools, or requirements from the job description..."
+            value={jobDescription}
+            onChange={(e) => setJobDescription(e.target.value)}
+          />
+        </label>
+
+        <div className="field" style={{ marginTop: 12 }}>
+          <span style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 700, color: "var(--soft)" }}>
+            Resume Length Target
+          </span>
+          <div className="jd-toggle-group" style={{ marginBottom: 0 }}>
+            <button
+              type="button"
+              className={`jd-toggle-btn ${targetPages === 1 ? "active" : ""}`}
+              onClick={() => setTargetPages(1)}
+            >
+              📄 1 Page (Standard - Compact Fit) [Default]
+            </button>
+            <button
+              type="button"
+              className={`jd-toggle-btn ${targetPages === 2 ? "active" : ""}`}
+              onClick={() => setTargetPages(2)}
+            >
+              📑 2 Pages (Detailed / Multi-Page)
+            </button>
+          </div>
+        </div>
+
+        {error ? <p className="notice">{error}</p> : null}
+
+        {!result ? (
+          <div className="modal-actions" style={{ marginTop: 20 }}>
+            <button className="ghost-btn" type="button" onClick={onClose} disabled={loading}>
+              Cancel
+            </button>
+            <button
+              className="primary-btn"
+              type="button"
+              onClick={runOptimization}
+              disabled={loading || (!jobTitle.trim() && !jobDescription.trim())}
+            >
+              {loading ? (loadingStep || "Optimizing for 95+ ATS...") : "🎯 Optimize Resume for 95+ ATS Score"}
+            </button>
+          </div>
+        ) : null}
+
+        {result ? (
+          <div style={{ marginTop: 22 }}>
+            <div className="jd-score-banner">
+              <div className="jd-score-box">
+                <span>ATS Readiness Score</span>
+                <strong>{result.beforeScore ?? "--"}/100 ➔ {result.afterScore}/100</strong>
+                <small>Format & parser validation</small>
+              </div>
+              <div className="jd-score-box">
+                <span>Job Match Score</span>
+                <strong>{result.beforeMatchScore ?? "--"}/100 ➔ {result.afterMatchScore}/100</strong>
+                <small>Keyword alignment & evidence</small>
+              </div>
+              <div className="jd-guarantee-badge">
+                {result.afterScore >= 95 ? "✓ 95+ ATS Readiness" : "✓ ATS Tailored"}
+              </div>
+            </div>
+
+            <div className="jd-chips-section">
+              <h4>Matched Keywords ({result.matchedKeywords?.length || 0})</h4>
+              <div className="jd-keyword-chips">
+                {(result.matchedKeywords || []).map((kw, i) => (
+                  <span className="keyword-chip matched" key={`m-${i}`}>✓ {kw}</span>
+                ))}
+              </div>
+            </div>
+
+            {result.addedKeywords?.length ? (
+              <div className="jd-chips-section">
+                <h4>Keywords Integrated into Resume ({result.addedKeywords.length})</h4>
+                <div className="jd-keyword-chips">
+                  {result.addedKeywords.map((kw, i) => (
+                    <span className="keyword-chip added" key={`a-${i}`}>+ {kw}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="jd-chips-section">
+              <h4>Review Tailored Content Changes</h4>
+              <div className="jd-diff-container">
+                {(result.diff || []).map((change) => (
+                  <article className="diff-card" key={change.id} style={{ marginBottom: 12 }}>
+                    <strong>{change.title}</strong>
+                    <div className="two-col" style={{ marginTop: 8 }}>
+                      <label className="field">
+                        <small>Before</small>
+                        <textarea rows={3} readOnly value={change.before} />
+                      </label>
+                      <label className="field">
+                        <small style={{ color: "var(--ok)", fontWeight: 700 }}>After (95+ ATS Optimized)</small>
+                        <textarea rows={3} readOnly value={change.after} />
+                      </label>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: 20 }}>
+              <button className="ghost-btn" type="button" onClick={() => setResult(null)}>
+                Modify Inputs
+              </button>
+              <button className="ghost-btn" type="button" onClick={onClose}>
+                Close
+              </button>
+              <button className="primary-btn" type="button" onClick={handleApply}>
+                ✅ Apply to Resume Editor
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }

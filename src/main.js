@@ -1,4 +1,4 @@
-﻿import "./styles.css";
+import "./styles.css";
 
 const STORAGE_KEY = "rover_current_resume_v3";
 
@@ -321,8 +321,8 @@ function previewTemplate(resume) {
     ${paperSection("Experience", previewResume.experience.map(previewExperience).join(""))}
     ${paperSection("Projects", projects.map(previewProject).join(""))}
     ${paperSection("Skills", skillList(previewResume.skills))}
-    ${paperSection("Achievements and Certifications", achievementsCertificationPreview(previewResume))}
     ${paperSection("Education", educationPreview(previewResume))}
+    ${paperSection("Certifications", achievementsCertificationPreview(previewResume))}
   `;
 }
 
@@ -1945,7 +1945,7 @@ function generateLatex(resume) {
     ...splitLines(exportResume.achievements),
     ...certificationText(exportResume).map((item) => item.replace(/\s+\|\s+/g, ", ")),
   ].join("\n");
-  const educationLines = exportResume.education.map((item) => `\\textbf{${tex(item.school || "Institution")}} \\hfill ${tex(item.degree || "Degree / Course")} \\\\\n\\textit{${tex(dateRange(item))}}`).join("\n\n");
+  const educationLines = exportResume.education.map((item) => `\\textbf{${tex(item.school || "Institution")}} \\hfill \\textbf{${tex(dateRange(item))}} \\\\\n\\textit{${tex(item.degree || "Degree / Course")}}`).join("\n\n");
 
   return `\\documentclass[a4paper,10pt]{article}
 \\usepackage[margin=0.6in]{geometry}
@@ -1966,28 +1966,28 @@ function generateLatex(resume) {
 ${tex(exportResume.summary)}
 
 \\section*{Experience}
-${exportResume.experience.map((item) => `\\textbf{${tex(item.title)}} \\hfill ${tex(dateRange(item))} \\\\\n${tex(item.company)}\n${latexBullets(item.bullets)}`).join("\n\n")}
+${exportResume.experience.map((item) => `\\textbf{${tex(item.title)}} \\hfill \\textbf{${tex(dateRange(item))}} \\\\\n${tex(item.company)}\n${latexBullets(item.bullets)}`).join("\n\n")}
 
 \\section*{Projects}
-${projects.map((item) => `\\textbf{${tex(item.link ? `${item.title} (${item.link})` : item.title)}} \\hfill ${tex(dateRange(item))} \\\\\n${tex(item.subtitle)}\n${latexBullets(item.bullets)}`).join("\n\n")}
+${projects.map((item) => `\\textbf{${tex(item.link ? `${item.title} (${item.link})` : item.title)}} \\hfill \\textbf{${tex(dateRange(item))}} \\\\\n${tex(item.subtitle)}\n${latexBullets(item.bullets)}`).join("\n\n")}
 
 \\section*{Skills}
 ${latexBullets(skillCategoryLines(exportResume.skills).join("\n"))}
 
-\\section*{Achievements and Certifications}
-${latexBullets(achievementLines)}
-
 \\section*{Education}
 ${educationLines}
 
-\\end{document}
+\section*{Certifications}
+${latexBullets(achievementLines)}
+
+\end{document}
 `;
 }
 
 function latexBullets(value) {
   const bullets = splitLines(value);
   if (!bullets.length) return "";
-  return `\\begin{itemize}\n${bullets.map((item) => `    \\item ${tex(item)}`).join("\n")}\n\\end{itemize}`;
+  return `\begin{itemize}\n${bullets.map((item) => `    \item ${tex(item)}`).join("\n")}\n\end{itemize}`;
 }
 
 function bulletList(value) {
@@ -1997,10 +1997,6 @@ function bulletList(value) {
 
 function splitLines(value) {
   return String(value || "").split(/\n|;/).map((line) => line.replace(/^[*-]\s*/, "").trim()).filter(Boolean);
-}
-
-function legacyNormalizeText(value) {
-  return value.replace(/\r/g, "").replace(/[â€¢â—]/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function normalizeText(value) {
