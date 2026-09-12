@@ -26,7 +26,11 @@ export async function POST(request) {
     const canonical = ensureCanonicalResume(resume || {});
     const cleanTitle = String(jobTitle || "").trim();
     const cleanJd = String(jobDescription || "").trim();
-    const pages = Number(targetPages) || 1;
+    const expEntries = (canonical.sections || []).find((s) => s.type === "experience")?.content?.entries || [];
+    const totalBullets = expEntries.reduce((sum, e) => sum + (e.bullets || []).length, 0);
+    const isExtensive = expEntries.length > 3 || totalBullets > 12;
+    const targetPagesParam = Number(targetPages);
+    const pages = Math.min(2, Math.max(1, targetPagesParam && targetPagesParam >= 1 ? targetPagesParam : (isExtensive ? 2 : 1)));
 
     let result;
     if (process.env.GEMINI_API_KEY) {

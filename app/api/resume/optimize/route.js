@@ -211,11 +211,14 @@ const ALL_GUARD_HEADINGS = [
   "project experience",
   "skills",
   "technical skills",
+  "certifications & professional development",
+  "certifications and professional development",
   "achievements and certifications",
   "licences and certifications",
   "licenses and certifications",
   "achievements",
   "certifications",
+  "professional development",
   "licenses",
   "licences",
   "education",
@@ -232,7 +235,7 @@ function guardLines(rawText) {
   text = text.replace(new RegExp(`\\s+(${upperHeadingPattern})(?=\\s|:|$)`, "g"), "\n$1");
   headings.forEach((heading) => {
     const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const longerHeadingGuard = /^(achievements|licences|licenses)$/i.test(heading) ? "(?!\\s+and\\s+certifications\\b)" : "";
+    const longerHeadingGuard = /^(achievements|licences|licenses|certifications)$/i.test(heading) ? "(?!\\s+and\\s+certifications\\b)" : "";
     text = text.replace(new RegExp(`(^|\\n)(${escaped})${longerHeadingGuard}\\s*[:\\-]?\\s+`, "gi"), "$1$2\n");
   });
   return text.split(/\n+/).map((line) => line.replace(/[ \t]{2,}/g, " ").trim()).filter(Boolean);
