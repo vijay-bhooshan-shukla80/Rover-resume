@@ -2374,6 +2374,235 @@ a {
 }
 
 
+/* Workspace alignment is screen-only; resume paper and exports retain their formatting. */
+@media screen {
+  .old-builder {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .old-builder .rover-workspace {
+    padding: 12px 16px;
+  }
+
+  .old-builder .workspace-headline {
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(11, 14, 18, 0.68);
+  }
+
+  .old-builder .workspace-headline h1 {
+    font-size: clamp(20px, 1.7vw, 28px);
+    line-height: 1.25;
+  }
+
+  .old-builder .workspace-headline > .actions {
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .old-builder-grid {
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .old-builder .old-editor {
+    gap: 10px;
+  }
+
+  .old-builder .choice-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(100px, 0.55fr);
+    gap: 10px;
+    margin: 0;
+  }
+
+  .old-builder .choice-card,
+  .old-builder .ats-hero-score {
+    min-height: 88px;
+    padding: 12px;
+    align-content: center;
+  }
+
+  .old-builder .choice-card strong {
+    margin-top: 6px;
+    font-size: 13px;
+  }
+
+  .old-builder .ats-hero-score strong {
+    font-size: 28px;
+  }
+
+  .old-builder .form-section {
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .old-builder .old-editor .field {
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .old-builder .profile-card .field,
+  .old-builder .settings-card .field {
+    margin-bottom: 0;
+  }
+
+  .old-builder .old-editor .field input,
+  .old-builder .old-editor .field select {
+    min-width: 0;
+    min-height: 36px;
+    padding: 8px 10px;
+    border-radius: 7px;
+  }
+
+  .old-builder .old-editor .two-col {
+    gap: 12px;
+  }
+
+  .old-builder .settings-actions {
+    margin-top: 12px;
+  }
+
+  .old-builder .font-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .old-builder .font-control {
+    min-width: 0;
+    padding: 8px;
+    border-radius: 7px;
+  }
+
+  .old-builder .font-control .actions {
+    gap: 4px;
+  }
+
+  .old-builder .profile-card {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+  }
+
+  .old-builder .profile-card > .section-title {
+    grid-column: 1 / -1;
+    margin-bottom: 0;
+  }
+
+  .old-builder .profile-card > .two-col {
+    display: contents;
+  }
+
+  .old-builder .old-editor .actions,
+  .old-builder .section-title {
+    flex-wrap: wrap;
+  }
+
+  .old-builder .preview-wrap {
+    padding: 12px;
+  }
+
+  .old-builder .preview-head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .old-builder .preview-head > div:first-child {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .old-builder .preview-head strong {
+    font-size: 15px;
+  }
+
+  .old-builder .preview-actions {
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .old-builder .preview-version-banner {
+    flex-wrap: wrap;
+    padding: 9px 10px;
+  }
+
+  .old-builder .ats-breakdown {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .old-builder .ats-breakdown p {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .old-builder .ats-breakdown span {
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 1200px) {
+    .old-builder {
+      grid-template-columns: 190px minmax(0, 1fr);
+    }
+
+    .old-builder .workspace-headline {
+      flex-wrap: wrap;
+    }
+  }
+
+  @media (max-width: 960px) {
+    .old-builder,
+    .old-builder-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .old-builder .rover-sidebar {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .old-builder .sidebar-version-group {
+      grid-column: 1 / -1;
+      margin: 0;
+    }
+
+    .old-builder .settings-card > .two-col {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 600px) {
+    .old-builder .rover-workspace {
+      padding: 10px;
+    }
+
+    .old-builder .rover-sidebar {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .old-builder .profile-card,
+    .old-builder .font-controls,
+    .old-builder .ats-breakdown {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .old-builder .choice-panel {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .old-builder .ats-hero-score {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 920px) {
+    .old-builder .old-editor.mobile-hidden {
+      display: none;
+    }
+  }
+}
+
 /* JD Matcher & 95+ ATS Tailor Styles */
 .jd-highlight-link {
   background: linear-gradient(90deg, rgba(92, 200, 242, 0.16), rgba(215, 249, 154, 0.14)) !important;

@@ -714,80 +714,6 @@ export function ResumeBuilder({ initialPremium = false }) {
           </div>
         </header>
 
-        <section className="choice-panel">
-          <article className="choice-card static-card">
-            <span>ATS</span>
-            <strong>ATS Readiness Score</strong>
-            <small>{atsLabel}</small>
-          </article>
-          <article className="choice-card static-card">
-            <span>JD</span>
-            <strong>Job Match Score</strong>
-            <small>{jobMatchLabel}</small>
-          </article>
-          <article className={`ats-hero-score${pageModel.status !== "fit" ? " warning" : ""}`}>
-            <span>Pages</span>
-            <strong>{pageModel.pageCount}</strong>
-            <small>{pageModel.status === "fit" ? `Fits ${workingResume.documentSettings.resumeLength} page limit` : "Content does not fit"}</small>
-          </article>
-        </section>
-
-        <section ref={settingsRef} className="form-section settings-card">
-          <div className="section-title">
-            <h3>Document Settings</h3>
-            <button className="mini-btn" type="button" onClick={confirmDocumentSettings}>
-              {workingResume.documentSettings.settingsConfirmed ? "Confirmed" : "Confirm Settings"}
-            </button>
-          </div>
-          <div className="two-col">
-            <label className="field">
-              Page Size
-              <select value={workingResume.documentSettings.pageSize} onChange={(e) => updateSettingsField("pageSize", e.target.value)}>
-                <option value="A4">A4</option>
-                <option value="US Letter">US Letter</option>
-              </select>
-            </label>
-            <label className="field">
-              Resume Length
-              <select value={String(workingResume.documentSettings.resumeLength)} onChange={(e) => updateSettingsField("resumeLength", Number(e.target.value))}>
-                <option value="1">1 Page</option>
-                <option value="2">2 Pages</option>
-              </select>
-            </label>
-          </div>
-          <div className="actions settings-actions">
-            <button className="ghost-btn small" type="button" onClick={() => previewFit(1)}>Fit to 1 Page</button>
-            <button className="ghost-btn small" type="button" onClick={() => previewFit(2)}>Fit to 2 Pages</button>
-          </div>
-          <div className="font-controls">
-            <div className="font-control">
-              <span>Name</span>
-              <div className="actions">
-                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("nameSize", -0.2)}>-</button>
-                <strong>{Number(pageModel.typography?.nameSize || 19.2).toFixed(1)}pt</strong>
-                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("nameSize", 0.2)}>+</button>
-              </div>
-            </div>
-            <div className="font-control">
-              <span>Headings</span>
-              <div className="actions">
-                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("headingSize", -0.2)}>-</button>
-                <strong>{Number(pageModel.typography?.headingSize || 11).toFixed(1)}pt</strong>
-                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("headingSize", 0.2)}>+</button>
-              </div>
-            </div>
-            <div className="font-control">
-              <span>Content</span>
-              <div className="actions">
-                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("bodySize", -0.2)}>-</button>
-                <strong>{Number(pageModel.typography?.bodySize || 9.8).toFixed(1)}pt</strong>
-                <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("bodySize", 0.2)}>+</button>
-              </div>
-            </div>
-          </div>
-          {!workingResume.documentSettings.settingsConfirmed ? <p className="notice">Document settings must be confirmed before create, upload, or AI conversion flows.</p> : null}
-        </section>
-
         <section className="builder old-builder-grid">
           <div className="mobile-tabs">
             <button className={`ghost-btn small ${activeTab === "edit" ? "active" : ""}`} type="button" onClick={() => setActiveTab("edit")}>Edit</button>
@@ -795,7 +721,81 @@ export function ResumeBuilder({ initialPremium = false }) {
           </div>
 
           <form className={`editor old-editor ${activeTab === "preview" ? "mobile-hidden" : ""}`}>
-            <FormSection title="Profile">
+            <section className="choice-panel">
+              <article className="choice-card static-card">
+                <span>ATS</span>
+                <strong>ATS Readiness Score</strong>
+                <small>{atsLabel}</small>
+              </article>
+              <article className="choice-card static-card">
+                <span>JD</span>
+                <strong>Job Match Score</strong>
+                <small>{jobMatchLabel}</small>
+              </article>
+              <article className={`ats-hero-score${pageModel.status !== "fit" ? " warning" : ""}`}>
+                <span>Pages</span>
+                <strong>{pageModel.pageCount}</strong>
+                <small>{pageModel.status === "fit" ? `Fits ${workingResume.documentSettings.resumeLength} page limit` : "Content does not fit"}</small>
+              </article>
+            </section>
+
+            <section ref={settingsRef} className="form-section settings-card">
+              <div className="section-title">
+                <h3>Document Settings</h3>
+                <button className="mini-btn" type="button" onClick={confirmDocumentSettings}>
+                  {workingResume.documentSettings.settingsConfirmed ? "Confirmed" : "Confirm Settings"}
+                </button>
+              </div>
+              <div className="two-col">
+                <label className="field">
+                  Page Size
+                  <select value={workingResume.documentSettings.pageSize} onChange={(e) => updateSettingsField("pageSize", e.target.value)}>
+                    <option value="A4">A4</option>
+                    <option value="US Letter">US Letter</option>
+                  </select>
+                </label>
+                <label className="field">
+                  Resume Length
+                  <select value={String(workingResume.documentSettings.resumeLength)} onChange={(e) => updateSettingsField("resumeLength", Number(e.target.value))}>
+                    <option value="1">1 Page</option>
+                    <option value="2">2 Pages</option>
+                  </select>
+                </label>
+              </div>
+              <div className="actions settings-actions">
+                <button className="ghost-btn small" type="button" onClick={() => previewFit(1)}>Fit to 1 Page</button>
+                <button className="ghost-btn small" type="button" onClick={() => previewFit(2)}>Fit to 2 Pages</button>
+              </div>
+              <div className="font-controls">
+                <div className="font-control">
+                  <span>Name</span>
+                  <div className="actions">
+                    <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("nameSize", -0.2)}>-</button>
+                    <strong>{Number(pageModel.typography?.nameSize || 19.2).toFixed(1)}pt</strong>
+                    <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("nameSize", 0.2)}>+</button>
+                  </div>
+                </div>
+                <div className="font-control">
+                  <span>Headings</span>
+                  <div className="actions">
+                    <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("headingSize", -0.2)}>-</button>
+                    <strong>{Number(pageModel.typography?.headingSize || 11).toFixed(1)}pt</strong>
+                    <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("headingSize", 0.2)}>+</button>
+                  </div>
+                </div>
+                <div className="font-control">
+                  <span>Content</span>
+                  <div className="actions">
+                    <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("bodySize", -0.2)}>-</button>
+                    <strong>{Number(pageModel.typography?.bodySize || 9.8).toFixed(1)}pt</strong>
+                    <button className="ghost-btn small" type="button" onClick={() => adjustTypographyField("bodySize", 0.2)}>+</button>
+                  </div>
+                </div>
+              </div>
+              {!workingResume.documentSettings.settingsConfirmed ? <p className="notice">Document settings must be confirmed before create, upload, or AI conversion flows.</p> : null}
+            </section>
+
+            <FormSection title="Profile" className="profile-card">
               <label className="field">Full Name<input value={workingResume.profile.fullName || ""} onChange={(e) => setProfileField("fullName", e.target.value)} /></label>
               <label className="field">Target Role<input value={workingResume.targetRole || ""} onChange={(e) => setTargetRoleField(e.target.value)} /></label>
               <div className="two-col">
@@ -1408,8 +1408,8 @@ function BufferedField({ as = "input", value, onCommit, onBlur, onChange, onFocu
   );
 }
 
-function FormSection({ title, children }) {
-  return <section className="form-section"><div className="section-title"><h3>{title}</h3></div>{children}</section>;
+function FormSection({ title, children, className = "" }) {
+  return <section className={`form-section ${className}`}><div className="section-title"><h3>{title}</h3></div>{children}</section>;
 }
 
 function LoginPromptModal({ onClose }) {
