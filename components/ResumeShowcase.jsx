@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const resumes = [
   {
@@ -143,18 +143,44 @@ const resumes = [
 
 export function ResumeShowcase() {
   const carouselRef = useRef(null);
-  const track = [resumes[3], resumes[4], resumes[5], resumes[0], ...resumes.filter((_, index) => ![0, 3, 4, 5].includes(index))];
-  function scrollExamples(direction) {
+  const interactionRef = useRef({ hover: false, focus: false, manualUntil: 0 });
+  const [autoPlay, setAutoPlay] = useState(true);
+  const orderedResumes = [resumes[3], resumes[4], resumes[5], resumes[0], ...resumes.filter((_, index) => ![0, 3, 4, 5].includes(index))];
+  const track = [...orderedResumes, ...orderedResumes];
+  const moveCarousel = useCallback((direction) => {
     const carousel = carouselRef.current;
     if (!carousel) return;
     const card = carousel.querySelector(".example-card");
     const step = (card?.getBoundingClientRect().width || 300) + 16;
+    const cycleWidth = step * resumes.length;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const atStart = carousel.scrollLeft <= 2;
-    const atEnd = carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 2;
-    const left = direction < 0 && atStart ? carousel.scrollWidth : direction > 0 && atEnd ? 0 : carousel.scrollLeft + direction * step;
-    carousel.scrollTo({ left, behavior: reduceMotion ? "auto" : "smooth" });
+    let position = carousel.scrollLeft;
+    if (direction < 0 && position <= 2) {
+      position += cycleWidth;
+      carousel.scrollTo({ left: position, behavior: "instant" });
+    } else if (position >= cycleWidth) {
+      position -= cycleWidth;
+      carousel.scrollTo({ left: position, behavior: "instant" });
+    }
+    carousel.scrollTo({ left: position + direction * step, behavior: reduceMotion ? "instant" : "smooth" });
+  }, []);
+
+  useEffect(() => {
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (!autoPlay) return;
+    const timer = window.setInterval(() => {
+      const interaction = interactionRef.current;
+      if (motion.matches || document.hidden || interaction.hover || interaction.focus || Date.now() < interaction.manualUntil) return;
+      moveCarousel(1);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [autoPlay, moveCarousel]);
+
+  function scrollExamples(direction) {
+    interactionRef.current.manualUntil = Date.now() + 6000;
+    moveCarousel(direction);
   }
+
   return (
     <section className="showcase-section landing-examples" aria-label="ATS resume examples">
       <div className="section-head showcase-head">
@@ -162,11 +188,16 @@ export function ResumeShowcase() {
         <h2>Live ATS Resume <span>Examples</span></h2>
         <p>Clean, professional resumes across different roles. See how an ATS-optimized resume looks.</p>
       </div>
-      <div className="examples-carousel">
+      <div className="examples-carousel"
+        onMouseEnter={() => { interactionRef.current.hover = true; }}
+        onMouseLeave={() => { interactionRef.current.hover = false; }}
+        onFocusCapture={() => { interactionRef.current.focus = true; }}
+        onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) interactionRef.current.focus = false; }}
+        onPointerDown={() => { interactionRef.current.manualUntil = Date.now() + 6000; }}>
         <button className="example-arrow previous" type="button" onClick={() => scrollExamples(-1)} aria-label="Previous resume examples"><Chevron left /></button>
         <div className="examples-track" ref={carouselRef} tabIndex={0} aria-label="Scroll resume examples">
           {track.map((resume, index) => (
-            <div className="example-card" key={`${resume.name}-${index}`}><article className="mini-resume">
+            <div className="example-card" key={`${resume.name}-${index}`} aria-hidden={index >= orderedResumes.length ? true : undefined}><article className="mini-resume">
               <h3>{resume.name}</h3>
               <MiniSection title="Professional Summary">
                 <p>{resume.summary}</p>
@@ -208,6 +239,9 @@ export function ResumeShowcase() {
         </div>
         <button className="example-arrow next" type="button" onClick={() => scrollExamples(1)} aria-label="Next resume examples"><Chevron /></button>
       </div>
+      <button className="carousel-autoplay" type="button" aria-pressed={!autoPlay} onClick={() => setAutoPlay((current) => !current)}>
+        <span aria-hidden="true">{autoPlay ? "Ⅱ" : "▷"}</span>{autoPlay ? "Pause auto-slide" : "Resume auto-slide"}
+      </button>
     </section>
   );
 }

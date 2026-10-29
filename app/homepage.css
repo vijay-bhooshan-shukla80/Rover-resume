@@ -45,8 +45,8 @@
   .landing-description { margin: 15px auto 19px; color: #c0b8df; font-size: 15px; line-height: 1.55; max-width: 840px; }
   .landing-actions { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
   .landing-primary, .landing-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 13px; min-height: 48px; border: 1px solid #ae78fb; border-radius: 100px; padding: 0 28px; font-size: 12px; font-weight: 750; transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease; }
-  .landing-primary { min-width: 245px; background: linear-gradient(115deg, #a05bfb, #7623ef); box-shadow: inset 0 1px 0 #ffffff40, 0 0 30px #9641f94d; }
-  .landing-primary svg { width: 17px; } .landing-secondary { background: #100c29aa; min-width: 184px; }
+  .landing-primary { min-width: 245px; border: 1.5px solid transparent; background: linear-gradient(115deg, #a05bfb, #7623ef) padding-box, linear-gradient(115deg, #efcaff, #b879ff 40%, #7032e7 70%, #d2a4ff) border-box; box-shadow: inset 0 1px 0 #ffffff40, 0 0 30px #9641f94d; }
+  .landing-primary svg { width: 17px; } .landing-secondary { border: 1.5px solid transparent; background: linear-gradient(#100c29, #100c29) padding-box, linear-gradient(115deg, #e4baff, #a768ee 40%, #5c2eab 70%, #c598ff) border-box; min-width: 184px; }
   .landing-primary:hover, .landing-secondary:hover { transform: translateY(-2px); box-shadow: 0 0 30px #a858f95c; background-color: #36204f; }
   .play-disc { display: grid; place-items: center; width: 20px; height: 20px; color: #eee3ff; border: 1px solid #bda0f3; border-radius: 50%; background: linear-gradient(150deg, #a474f0, #482687); } .play-disc svg { width: 13px; height: 13px; }
   .landing-features { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px; max-width: 840px; margin: 17px auto 0; scroll-margin-top: 24px; }
@@ -74,6 +74,8 @@
   .example-caption span { border: 1px solid #bd96f355; border-radius: 30px; padding: 5px 12px; font-size: 9px; font-weight: 750; background: linear-gradient(110deg, #9361d888, #6a37b766); box-shadow: inset 0 1px 0 #d5b6ff33; }
   .example-arrow { position: absolute; z-index: 2; top: 43%; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid #ac72f2; border-radius: 50%; background: linear-gradient(135deg, #3b245d, #130d29); color: #d5b9ff; cursor: pointer; transition: background 180ms ease, transform 180ms ease; }
   .example-arrow:hover { background: #7141a8; transform: scale(1.06); } .example-arrow.previous { left: -54px; } .example-arrow.next { right: -54px; }
+  .carousel-autoplay { display: flex; align-items: center; gap: 7px; margin: 12px auto 0; padding: 6px 11px; border: 1px solid #a477dd44; border-radius: 30px; background: #25173c88; color: #cbb5e7; font-size: 10px; transition: border-color 180ms ease, background 180ms ease; }
+  .carousel-autoplay:hover { border-color: #ba87fa; background: #41265e; }
   @media (prefers-reduced-motion: no-preference) {
     .landing-visual { animation: landingReveal 700ms ease-out both; } .landing-copy { animation: landingReveal 600ms 100ms ease-out both; }
     .visual-resume { animation: resumeHover 7s ease-in-out infinite; } .visual-analysis { animation: analysisHover 7s -2s ease-in-out infinite; }
