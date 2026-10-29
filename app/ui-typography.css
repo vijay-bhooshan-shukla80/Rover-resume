@@ -61,7 +61,7 @@
     letter-spacing: 0;
   }
 
-  .landing-page.split-home :is(.landing-badge, .showcase-head .eyebrow) {
+  .landing-page.split-home :is(.landing-badge, .showcase-head .eyebrow, .home-faq > .eyebrow) {
     font-size: 12px;
     font-weight: 500;
     line-height: 1.4;
@@ -278,6 +278,28 @@
     font-size: 12px;
     font-weight: 500;
     line-height: 1.4;
+    letter-spacing: 0;
+  }
+
+  .rover-dashboard.old-builder .modal-backdrop .drop {
+    font-family: var(--ui-font);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0;
+  }
+
+  .rover-dashboard.old-builder .toast > span {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+
+  .rover-dashboard.old-builder .toast p {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
     letter-spacing: 0;
   }
 
