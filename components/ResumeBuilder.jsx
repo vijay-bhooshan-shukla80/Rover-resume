@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { PaymentButtons } from "@/components/PaymentButtons";
+import "./resume-import.css";
 import {
   addSection,
   analyzeResume,
@@ -1140,28 +1141,41 @@ function EntrySectionEditor({ section, onPatch }) {
 
 function UploadModal({ importText, uploadInfo, importLoading, importError, targetRole, jobDescription, setImportText, setTargetRole, setJobDescription, onClose, onFile, onConvert }) {
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="modal-card upload-modal old-upload-modal">
-        <button className="popup-close" type="button" onClick={onClose}>x</button>
-        <p className="eyebrow">Resume Import</p>
-        <h2>Upload resume source for conversion</h2>
+    <div className="modal-backdrop resume-import-backdrop" role="dialog" aria-modal="true" aria-labelledby="resume-import-title">
+      <div className="modal-card upload-modal old-upload-modal resume-import-card">
+        <button className="popup-close" type="button" onClick={onClose} aria-label="Close resume import"><ImportIcon name="close" /></button>
+        <p className="eyebrow"><span className="import-heading-icon"><ImportIcon name="document" /></span>Resume Import</p>
+        <h2 id="resume-import-title">Upload resume source for conversion</h2>
         <p className="muted-small">Supported: PDF, DOCX, TXT, MD, and CSV. Raw import text will be preserved for review and recovery.</p>
         <label className="drop">
+          <span className="import-upload-icon"><ImportIcon name="upload" /></span>
           <span>Choose PDF, DOCX, or TXT</span>
-          <input type="file" accept=".txt,.md,.csv,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => onFile(e.target.files?.[0])} />
+          <input aria-label="Choose resume file" type="file" accept=".txt,.md,.csv,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => onFile(e.target.files?.[0])} />
         </label>
         {uploadInfo ? <div className="upload-status"><strong>{uploadInfo.name}</strong><span>{uploadInfo.status}{uploadInfo.chars ? ` - ${uploadInfo.chars} characters` : ""}</span></div> : null}
-        <label className="field">Target role<input value={targetRole} onChange={(e) => setTargetRole(e.target.value)} /></label>
-        <label className="field">Job description<textarea rows={3} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} /></label>
-        <label className="field">Raw import text<textarea rows={6} value={importText} onChange={(e) => setImportText(e.target.value)} /></label>
+        <label className="field"><span className="import-field-label"><ImportIcon name="person" />Target role</span><input placeholder="e.g. Software Engineer, Product Manager..." value={targetRole} onChange={(e) => setTargetRole(e.target.value)} /></label>
+        <label className="field"><span className="import-field-label"><ImportIcon name="document" />Job description</span><textarea placeholder="Paste the job description here..." rows={3} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} /></label>
+        <label className="field"><span className="import-field-label"><ImportIcon name="book" />Raw import text</span><textarea placeholder="Raw resume text will appear here..." rows={6} value={importText} onChange={(e) => setImportText(e.target.value)} /></label>
         {importError ? <p className="notice">{importError}</p> : null}
         <div className="modal-actions">
           <button className="ghost-btn" type="button" onClick={onClose}>Cancel</button>
-          <button className="primary-btn" type="button" onClick={onConvert} disabled={importLoading}>{importLoading ? "Converting..." : "Convert Resume"}</button>
+          <button className="primary-btn" type="button" onClick={onConvert} disabled={importLoading}><ImportIcon name="sparkles" />{importLoading ? "Converting..." : "Convert Resume"}</button>
         </div>
       </div>
     </div>
   );
+}
+
+function ImportIcon({ name }) {
+  const paths = {
+    close: <path d="m6 6 12 12M18 6 6 18" />,
+    document: <><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h6" /></>,
+    upload: <><path d="M6 3h8l5 5v13H6zM14 3v5h5M12 18v-7m-3 3 3-3 3 3" /></>,
+    person: <><circle cx="12" cy="7" r="3" /><path d="M8 13h8l3 4v4H5v-4zM12 13v5" /></>,
+    book: <path d="M12 5C9 3 5 3 2 4v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-3-1-7-1-10 1v15" />,
+    sparkles: <path d="m9 3 2 6 6 2-6 2-2 6-2-6-6-2 6-2zM19 2v6m-3-3h6M19 16v6m-3-3h6" />,
+  };
+  return <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
 function getEntryEditorLabels(sectionType) {
