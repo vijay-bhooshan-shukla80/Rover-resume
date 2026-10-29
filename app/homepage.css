@@ -136,7 +136,9 @@
     column-gap: 28px;
     row-gap: 16px;
     align-items: center;
-    padding: 35px max(24px, calc((100vw - 1250px) / 2)) 24px;
+    padding: 35px max(24px, calc((100vw - 1250px) / 2)) 12px;
+    min-height: 0;
+    align-content: start;
     text-align: left;
     background: radial-gradient(ellipse at 73% 28%, #49208755, transparent 44%), radial-gradient(ellipse at 15% 70%, #23134b33, transparent 52%), #0b0a1d;
     border-bottom: 0;
@@ -188,7 +190,7 @@
   .split-home .landing-feature .landing-icon { flex-basis: 45px; width: 45px; height: 47px; }
   .split-home .landing-feature strong { font-size: 11px; }
   .split-home .landing-feature p { font-size: 10px; }
-  .split-home .landing-examples { padding: 12px max(24px, calc((100vw - 1250px) / 2)) 32px; background: radial-gradient(ellipse at 10% 80%, #3a175833, transparent 50%), #0b0a1d; scroll-margin-top: 20px; }
+  .split-home .landing-examples { margin-top: 0; padding: 12px max(24px, calc((100vw - 1250px) / 2)) 24px; background: radial-gradient(ellipse at 10% 80%, #3a175833, transparent 50%), #0b0a1d; scroll-margin-top: 20px; }
   .split-home .showcase-head { width: 100%; max-width: none; text-align: left; margin-bottom: 18px; }
   .split-home .showcase-head .eyebrow { display: inline-flex; border: 1px solid #a771e955; border-radius: 20px; padding: 5px 10px; font-weight: 500; font-size: 8px; background: #321d4e66; margin-bottom: 8px; }
   .split-home .showcase-head .eyebrow::before, .split-home .showcase-head .eyebrow::after { display: none; }
@@ -234,7 +236,8 @@
   .example-reader-scroll { overflow: auto; max-height: calc(94dvh - 115px); padding: 18px; background: #ece9f0; overscroll-behavior: contain; }
   .example-reader-image { display: block; max-width: none; margin: 0 auto; }
   /* Landing examples only: real text stays sharp at every reader zoom level. */
-  .sample-resume-open { cursor: zoom-in; border-radius: 8px; }
+  .sample-resume-open { height: 560px; overflow: hidden; cursor: zoom-in; border-radius: 8px; }
+  .sample-resume-open .showcase-text-resume { min-height: 100%; }
   .sample-resume-open:focus-visible { outline: 2px solid #bd8dff; outline-offset: 3px; }
   .showcase-text-resume { box-sizing: border-box; width: 100%; margin: 0; padding: 22px; border-radius: 8px; background: #fff; color: #111; font-family: Arial, sans-serif; font-size: 11px; line-height: 1.45; font-weight: 400; letter-spacing: 0; text-align: left; overflow-wrap: break-word; font-synthesis: weight; }
   .showcase-text-resume .sample-resume-identity { margin-bottom: 1.5em; text-align: center; }

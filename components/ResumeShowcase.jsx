@@ -8,7 +8,6 @@ import { showcaseResumes as resumes } from "@/lib/showcase-resumes";
 export function ResumeShowcase() {
   const carouselRef = useRef(null);
   const interactionRef = useRef({ dragging: false, manualUntil: 0 });
-  const [autoPlay, setAutoPlay] = useState(true);
   const [selectedResume, setSelectedResume] = useState(null);
   const orderedResumes = resumes;
   const track = [...orderedResumes, ...orderedResumes, ...orderedResumes];
@@ -32,7 +31,7 @@ export function ResumeShowcase() {
 
   useEffect(() => {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (!autoPlay || selectedResume) return;
+    if (selectedResume) return;
     const carousel = carouselRef.current;
     if (!carousel) return;
     let frame;
@@ -76,7 +75,7 @@ export function ResumeShowcase() {
       window.removeEventListener("pointerup", releasePointer);
       window.removeEventListener("pointercancel", releasePointer);
     };
-  }, [autoPlay, selectedResume]);
+  }, [selectedResume]);
 
   function scrollExamples(direction) {
     interactionRef.current.manualUntil = Date.now() + 600;
@@ -104,9 +103,6 @@ export function ResumeShowcase() {
         </div>
         <button className="example-arrow next" type="button" onClick={() => scrollExamples(1)} aria-label="Next resume examples"><Chevron /></button>
       </div>
-      <button className="carousel-autoplay" type="button" aria-pressed={!autoPlay} onClick={() => { interactionRef.current.dragging = false; setAutoPlay((current) => !current); }}>
-        <span aria-hidden="true">{autoPlay ? "Ⅱ" : "▷"}</span>{autoPlay ? "Pause auto-slide" : "Resume auto-slide"}
-      </button>
       {selectedResume ? <ResumeReader resume={selectedResume} onClose={() => setSelectedResume(null)} /> : null}
     </section>
   );
