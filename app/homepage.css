@@ -236,9 +236,11 @@
   .example-reader-scroll { overflow: auto; max-height: calc(94dvh - 115px); padding: 18px; background: #ece9f0; overscroll-behavior: contain; }
   .example-reader-image { display: block; max-width: none; margin: 0 auto; }
   /* Landing examples only: real text stays sharp at every reader zoom level. */
-  .sample-resume-open { height: 560px; overflow: hidden; cursor: zoom-in; border-radius: 8px; }
-  .sample-resume-open .showcase-text-resume { min-height: 100%; }
+  .sample-resume-open { display: flex; justify-content: center; align-items: flex-start; height: 760px; overflow: hidden; cursor: zoom-in; border-radius: 8px; background: #ece9f0; }
+  .sample-resume-open .showcase-text-resume { flex: 0 0 auto; }
+  .sample-resume-open .sample-resume-entry-heading { flex-wrap: nowrap; gap: 1em; }
   .sample-resume-open:focus-visible { outline: 2px solid #bd8dff; outline-offset: 3px; }
+  @media (max-width: 600px) { .sample-resume-open { height: 560px; } }
   .showcase-text-resume { box-sizing: border-box; width: 100%; margin: 0; padding: 22px; border-radius: 8px; background: #fff; color: #111; font-family: Arial, sans-serif; font-size: 11px; line-height: 1.45; font-weight: 400; letter-spacing: 0; text-align: left; overflow-wrap: break-word; font-synthesis: weight; }
   .showcase-text-resume .sample-resume-identity { margin-bottom: 1.5em; text-align: center; }
   .showcase-text-resume .sample-resume-identity strong { display: block; margin-bottom: 0.35em; font-size: 2em; line-height: 1.2; font-weight: 700; }

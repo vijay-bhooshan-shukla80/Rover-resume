@@ -126,7 +126,7 @@ function SampleResume({ resume, style }) {
     {showcaseContent[resume.id].map((section) => <section className="sample-resume-section" key={section.title}>
       <h4>{section.title}</h4>
       {section.text ? <p>{section.text}</p> : null}
-      {section.entries?.map((entry) => <div className="sample-resume-entry" key={entry.role}>
+      {section.entries?.map((entry) => <div className="sample-resume-entry" key={`${entry.role}-${entry.date}`}>
         <div className="sample-resume-entry-heading"><strong>{entry.role}</strong><span>{entry.date}</span></div>
         {entry.subtitle ? <div className="sample-resume-entry-heading"><span>{entry.subtitle}</span><span>{entry.location}</span></div> : null}
         {entry.bullets ? <ul>{entry.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}
@@ -136,10 +136,24 @@ function SampleResume({ resume, style }) {
 }
 
 function ResumeDocument({ resume, duplicate, onOpen }) {
+  const frameRef = useRef(null);
+  const [scale, setScale] = useState(0.4);
+  useEffect(() => {
+    const frame = frameRef.current;
+    const document = frame.querySelector(".showcase-text-resume");
+    function fitDocument() {
+      setScale(Math.min((frame.clientWidth - 2) / document.offsetWidth, (frame.clientHeight - 2) / document.offsetHeight, 1));
+    }
+    const observer = new ResizeObserver(fitDocument);
+    observer.observe(frame);
+    observer.observe(document);
+    fitDocument();
+    return () => observer.disconnect();
+  }, []);
   return (
     <>
       <button type="button" className="example-open-preview" onClick={onOpen} tabIndex={duplicate ? -1 : 0}>View full resume <span aria-hidden="true">↗</span></button>
-      <div role="button" className="sample-resume-open" tabIndex={duplicate ? -1 : 0} aria-label={`Read full ${resume.name} resume`} onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpen(); } }}><SampleResume resume={resume} /></div>
+      <div ref={frameRef} role="button" className="sample-resume-open" tabIndex={duplicate ? -1 : 0} aria-label={`Read full ${resume.name} resume`} onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpen(); } }}><SampleResume resume={resume} style={{ width: 794, fontSize: 14, padding: 28, zoom: scale }} /></div>
     </>
   );
 }
