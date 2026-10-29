@@ -1,8 +1,10 @@
 /* Screen-only styling for the resume import dialog; document surfaces are excluded. */
 @media screen {
-  .modal-backdrop.resume-import-backdrop { padding: 28px 18px; background: #090613b8; backdrop-filter: blur(12px); }
+  /* A transformed dashboard would anchor its fixed dialog to the full page. */
+  .rover-dashboard:has(.resume-import-backdrop) { animation: none; transform: none; }
+  .modal-backdrop.resume-import-backdrop { position: fixed; inset: 0; align-items: flex-start; padding: 28px 18px; background: #090613b8; backdrop-filter: blur(12px); }
   .modal-card.resume-import-card {
-    isolation: isolate; width: min(560px, calc(100vw - 36px)); margin: auto;
+    isolation: isolate; width: min(560px, calc(100vw - 36px)); margin: 0 auto;
     padding: 20px 22px 18px; max-height: calc(100dvh - 56px); overflow: auto;
     border: 1px solid #ad7df0; border-radius: 22px; color: #f6f2ff;
     background: radial-gradient(ellipse at 87% 0%, #6b29d05e, transparent 42%), linear-gradient(135deg, #201c32, #121121 68%, #1c1233);
