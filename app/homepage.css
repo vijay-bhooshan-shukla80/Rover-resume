@@ -108,3 +108,169 @@
 @keyframes landingReveal { from { opacity: 0; translate: 0 9px; } to { opacity: 1; translate: 0 0; } }
 @keyframes resumeHover { 0%, 100% { transform: rotate(-4deg) rotateY(8deg) translateY(0); } 50% { transform: rotate(-4deg) rotateY(8deg) translateY(-5px); } }
 @keyframes analysisHover { 0%, 100% { transform: rotate(4deg) translateY(0); } 50% { transform: rotate(4deg) translateY(4px); } }
+
+/* Split landing layout; all selectors stay outside the resume editor and exports. */
+@media screen {
+  .home-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 66px;
+    padding: 10px max(24px, calc((100vw - 1250px) / 2));
+    border-bottom: 1px solid #a074e21c;
+    background: linear-gradient(110deg, #0c0b20, #15102e);
+  }
+  .home-brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; font-size: 16px; font-weight: 750; letter-spacing: -0.03em; }
+  .home-brand .landing-icon { width: 32px; height: 34px; flex-basis: 32px; background: #50238955; }
+  .home-brand svg { width: 25px; height: 25px; }
+  .home-nav { display: flex; align-items: center; justify-content: center; gap: 25px; }
+  .home-nav a { color: #d7cfe8; white-space: nowrap; font-size: 11px; transition: color 180ms ease; }
+  .home-nav a:hover { color: #c292ff; }
+  .home-account { display: flex; align-items: center; gap: 12px; }
+  .home-sign-in { display: grid; place-items: center; min-height: 36px; padding: 0 21px; border: 1px solid #8055b277; border-radius: 9px; color: #ddc8ff; font-size: 11px; white-space: nowrap; }
+  .home-account .landing-primary { min-width: 120px; min-height: 36px; padding: 0 17px; border-radius: 9px; font-size: 11px; gap: 9px; box-shadow: none; }
+  .split-home .landing-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    column-gap: 28px;
+    row-gap: 16px;
+    align-items: center;
+    padding: 35px max(24px, calc((100vw - 1250px) / 2)) 24px;
+    text-align: left;
+    background: radial-gradient(ellipse at 73% 28%, #49208755, transparent 44%), radial-gradient(ellipse at 15% 70%, #23134b33, transparent 52%), #0b0a1d;
+    border-bottom: 0;
+  }
+  .split-home .landing-copy { grid-column: 1; grid-row: 1; width: 100%; margin: 0; text-align: left; }
+  .split-home .landing-copy h1 { font-size: clamp(32px, 3.05vw, 47px); line-height: 1.13; letter-spacing: -0.035em; max-width: 600px; }
+  .split-home .landing-copy h1 span { display: block; }
+  .split-home .landing-badge { margin-bottom: 15px; font-weight: 500; font-size: 11px; padding: 6px 13px; }
+  .split-home .landing-description { max-width: 550px; margin: 18px 0 22px; font-size: 14px; line-height: 1.75; }
+  .split-home .landing-actions { justify-content: flex-start; gap: 16px; }
+  .split-home .landing-actions > a { min-height: 49px; border-radius: 12px; padding: 0 24px; }
+  .split-home .landing-actions .landing-primary { min-width: 233px; }
+  .split-home .landing-secondary { min-width: 180px; }
+  .home-capabilities { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 34px; gap: 14px; }
+  .home-capabilities > div { display: grid; gap: 8px; padding-right: 10px; border-right: 1px solid #8454b826; }
+  .home-capabilities > div:last-child { border-right: 0; }
+  .home-capabilities strong { font-size: 12px; white-space: nowrap; }
+  .home-capabilities span { font-size: 10px; color: #ada4c7; line-height: 1.5; }
+  .split-home .landing-visual { grid-column: 2; grid-row: 1; width: 100%; max-width: none; min-width: 0; height: 450px; margin: 0; left: auto; transform: none; }
+  .split-home .visual-resume { left: 25%; top: 36px; width: 235px; height: 368px; padding: 24px 19px; }
+  .resume-ready { position: absolute; top: 11px; right: -17px; padding: 6px 11px; background: linear-gradient(110deg, #a15bff, #8123f4); border: 1px solid #d4b0ff55; border-radius: 9px; color: #fff; font-size: 10px; font-weight: 750; box-shadow: 0 3px 16px #743bc94d; }
+  .split-home .visual-resume-name { font-size: 18px; margin-top: 5px; }
+  .split-home .visual-resume-name > span { display: none; }
+  .visual-resume-role { margin: 8px 0 0; font-size: 9px; color: #6f5c94; }
+  .split-home .visual-resume-section { margin-bottom: 18px; }
+  .split-home .visual-resume-section strong { font-size: 7px; }
+  .split-home .visual-doc-back { left: 20%; top: 30px; width: 216px; height: 360px; }
+  .split-home .visual-analysis { left: 66%; top: 77px; width: 195px; height: 276px; padding: 17px 14px; }
+  .split-home .visual-score { width: 94px; height: 94px; margin: 13px auto 20px; }
+  .split-home .visual-score > span { padding-top: 25px; }
+  .split-home .visual-score b { font-size: 27px; }
+  .split-home .visual-analysis-row { margin-top: 10px; font-size: 7px; gap: 5px; }
+  .split-home .visual-analysis-row > i { width: 42px; }
+  .split-home .visual-callout { left: 0; right: auto; width: 177px; padding: 12px; gap: 9px; }
+  .split-home .visual-callout strong { font-size: 10px; }
+  .split-home .visual-callout p { font-size: 9px; }
+  .split-home .visual-callout .landing-icon { flex-basis: 34px; width: 34px; height: 37px; }
+  .split-home .callout-import { top: 84px; transform: rotate(-3deg); }
+  .split-home .callout-refine { top: 183px; transform: rotate(-3deg); }
+  .split-home .callout-match { top: 282px; transform: rotate(-3deg); }
+  .split-home .callout-export { left: auto; right: 0; top: auto; bottom: 5px; width: 208px; }
+  .split-home .visual-orbit { left: 9%; top: 243px; width: 105%; height: 150px; }
+  .split-home .orbit-two { left: 17%; top: 291px; width: 75%; height: 96px; }
+  .split-home .orb-left { top: 270px; left: -490px; }
+  .split-home .orb-right { top: -390px; right: -350px; }
+  .split-home .landing-features { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: none; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding: 17px 10px; margin: 8px 0 0; border: 1px solid #8e59ca44; border-radius: 18px; background: linear-gradient(120deg, #21133866, #100c21aa); }
+  .split-home .landing-feature { flex-direction: row; text-align: left; border: 0; border-radius: 0; border-right: 1px solid #9e72cf26; background: none; padding: 0 12px; }
+  .split-home .landing-feature:last-child { border-right: 0; }
+  .split-home .landing-feature .landing-icon { flex-basis: 45px; width: 45px; height: 47px; }
+  .split-home .landing-feature strong { font-size: 11px; }
+  .split-home .landing-feature p { font-size: 10px; }
+  .split-home .landing-examples { padding: 12px max(24px, calc((100vw - 1250px) / 2)) 32px; background: radial-gradient(ellipse at 10% 80%, #3a175833, transparent 50%), #0b0a1d; scroll-margin-top: 20px; }
+  .split-home .showcase-head { width: 100%; max-width: none; text-align: left; margin-bottom: 18px; }
+  .split-home .showcase-head .eyebrow { display: inline-flex; border: 1px solid #a771e955; border-radius: 20px; padding: 5px 10px; font-weight: 500; font-size: 8px; background: #321d4e66; margin-bottom: 8px; }
+  .split-home .showcase-head .eyebrow::before, .split-home .showcase-head .eyebrow::after { display: none; }
+  .split-home .showcase-head h2 { font-size: 31px; }
+  .split-home .examples-carousel { max-width: none; margin-inline: 0; }
+  .example-card-title { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 0 3px 8px; font-size: 11px; font-weight: 700; }
+  .example-card-title > span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; background: #6f3ab8; color: #dec4ff; }
+  .split-home .example-card { background: linear-gradient(140deg, #211a37, #17132a); border-radius: 12px; padding: 10px; }
+  .split-home .example-caption { display: none; }
+  .split-home .example-arrow.previous { left: -18px; }
+  .split-home .example-arrow.next { right: -18px; }
+  .home-faq { padding: 32px max(24px, calc((100vw - 1250px) / 2)) 60px; background: #0b0a1d; scroll-margin-top: 24px; }
+  .home-faq h2 { margin: 0 0 22px; font-size: 28px; letter-spacing: -0.03em; }
+  .home-faq details { padding: 15px 18px; border: 1px solid #9362c533; border-radius: 12px; background: #1d153044; margin-top: 10px; }
+  .home-faq summary { cursor: pointer; font-size: 13px; font-weight: 650; color: #e1d5f1; }
+  .home-faq details p { margin: 12px 0 0; color: #ada4c7; font-size: 12px; line-height: 1.7; }
+  @media (max-width: 1250px) {
+    .home-header { gap: 15px; }
+    .home-nav { gap: 14px; }
+    .home-nav a { font-size: 10px; }
+    .split-home .landing-hero { column-gap: 15px; }
+    .split-home .landing-copy h1 { font-size: 38px; }
+    .split-home .visual-resume { left: 23%; width: 210px; }
+    .split-home .visual-analysis { left: 65%; width: 175px; padding-inline: 10px; }
+    .split-home .visual-callout { width: 151px; padding: 10px; gap: 6px; }
+    .split-home .callout-export { width: 190px; }
+    .split-home .landing-actions > a { padding-inline: 17px; min-width: 0; }
+    .home-capabilities { gap: 8px; }
+    .home-capabilities strong { font-size: 10px; }
+    .home-capabilities span { font-size: 9px; }
+  }
+  @media (max-width: 1000px) {
+    .home-header { display: grid; grid-template-columns: 1fr auto; }
+    .home-nav { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; overflow-x: auto; padding: 5px 0; gap: 25px; }
+    .home-nav a { font-size: 11px; }
+    .split-home .landing-hero { grid-template-columns: minmax(0, 1fr); padding-top: 30px; }
+    .split-home .landing-copy { grid-column: 1; grid-row: 1; max-width: 670px; margin: auto; text-align: center; }
+    .split-home .landing-copy h1 { max-width: none; font-size: clamp(32px, 5vw, 45px); }
+    .split-home .landing-description { margin-inline: auto; }
+    .split-home .landing-actions { justify-content: center; }
+    .home-capabilities { margin: 28px auto 0; max-width: 600px; }
+    .split-home .landing-visual { grid-column: 1; grid-row: 2; max-width: 640px; margin: 0 auto; }
+    .split-home .visual-resume { left: 25%; width: 235px; }
+    .split-home .visual-analysis { left: 66%; width: 195px; }
+    .split-home .visual-callout { width: 177px; padding: 12px; }
+    .split-home .landing-features { grid-row: 3; grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 18px; }
+    .split-home .landing-feature:nth-child(2) { border-right: 0; }
+  }
+  @media (max-width: 600px) {
+    .split-title-break { display: none; }
+    .home-header { padding-inline: 18px; gap: 12px; }
+    .home-brand { font-size: 13px; gap: 6px; }
+    .home-account { gap: 7px; }
+    .home-sign-in { padding-inline: 10px; font-size: 10px; }
+    .home-account .landing-primary { min-width: 0; min-height: 34px; padding-inline: 11px; font-size: 10px; }
+    .home-account .landing-primary svg { display: none; }
+    .home-nav { gap: 10px; justify-content: space-between; scrollbar-width: none; }
+    .home-nav::-webkit-scrollbar { display: none; }
+    .home-nav a { font-size: 9.5px; }
+    .split-home .landing-hero { padding: 24px 18px 20px; }
+    .split-home .landing-copy h1 { font-size: 33px; }
+    .split-home .landing-description { font-size: 12px; line-height: 1.7; }
+    .home-capabilities { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px 10px; text-align: left; max-width: 330px; }
+    .home-capabilities > div:nth-child(2) { border-right: 0; }
+    .split-home .landing-visual { width: 100%; height: 330px; margin: 0; transform: none; left: auto; }
+    .split-home .visual-callout { display: none; }
+    .split-home .visual-resume { left: calc(50% - 153px); width: 190px; height: 300px; top: 16px; padding: 20px 15px; }
+    .split-home .visual-resume-section { margin-bottom: 10px; }
+    .split-home .visual-resume-section strong { margin-bottom: 6px; }
+    .split-home .visual-analysis { left: calc(50% + 35px); top: 60px; width: 145px; height: 241px; padding: 13px 8px; }
+    .split-home .visual-analysis-row { font-size: 6px; gap: 3px; margin-top: 9px; }
+    .split-home .visual-analysis-row > i { width: 27px; }
+    .split-home .visual-score { width: 78px; height: 78px; margin: 12px auto 16px; }
+    .split-home .visual-score > span { padding-top: 18px; }
+    .split-home .visual-doc-back { left: calc(50% - 175px); top: 18px; width: 180px; height: 290px; }
+    .split-home .visual-orbit { left: 0; top: 170px; width: 100%; height: 100px; }
+    .split-home .landing-feature { padding-inline: 6px; gap: 8px; }
+    .split-home .landing-feature .landing-icon { flex-basis: 31px; width: 31px; height: 36px; }
+    .split-home .landing-feature strong { font-size: 9px; }
+    .split-home .landing-feature p { font-size: 9px; }
+    .split-home .showcase-head h2 { font-size: 25px; }
+    .split-home .landing-examples { padding-inline: 24px; }
+    .split-home .example-card-title { font-size: 10px; }
+  }
+}

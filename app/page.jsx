@@ -4,8 +4,15 @@ import "./homepage.css";
 
 export default function HomePage() {
   return (
-    <main className="landing-page">
-      <section className="landing-hero" aria-labelledby="landing-title">
+    <main className="landing-page split-home" id="home">
+      <header className="home-header">
+        <Link className="home-brand" href="/" aria-label="AI Resume Maker home"><span className="landing-icon"><HomeIcon name="document" /></span>AI Resume Maker</Link>
+        <nav className="home-nav" aria-label="Main navigation">
+          <a href="#home">Home</a><a href="#features">Features</a><a href="#how-it-works">How it Works</a><a href="#resume-examples">Resume Examples</a><Link href="/pricing">Pricing</Link><a href="#faq">FAQ</a>
+        </nav>
+        <div className="home-account"><Link className="home-sign-in" href="/sign-in">Sign In</Link><Link className="landing-primary" href="/career-cockpit">Get Started <HomeIcon name="arrow" /></Link></div>
+      </header>
+      <section className="landing-hero" aria-labelledby="landing-title" id="features">
         <div className="landing-orb orb-left" aria-hidden="true" />
         <div className="landing-orb orb-right" aria-hidden="true" />
         <div className="landing-dots dots-left" aria-hidden="true" />
@@ -13,15 +20,17 @@ export default function HomePage() {
         <div className="landing-visual" aria-label="Illustration of a resume and an example ATS analysis">
           <div className="visual-orbit orbit-one" aria-hidden="true" />
           <div className="visual-orbit orbit-two" aria-hidden="true" />
-          <VisualCallout className="callout-import" icon="document" title="Import Your Resume" text="PDF, Word or Text" />
-          <VisualCallout className="callout-refine" icon="edit" title="AI-Powered Refinement" text="Tailor to the job description" />
-          <VisualCallout className="callout-match" icon="target" title="Match Job Description" text="Find the right keywords" />
-          <VisualCallout className="callout-export" icon="chart" title="Export & Apply" text="Ready for your next opportunity" />
+          <VisualCallout className="callout-import" icon="document" title="Import Resume" text="PDF, Word or Text" />
+          <VisualCallout className="callout-refine" icon="edit" title="AI Enhancement" text="Improve with AI" />
+          <VisualCallout className="callout-match" icon="target" title="Tailor for JD" text="Match your target job" />
+          <VisualCallout className="callout-export" icon="download" title="Export Always Ready" text="PDF, Word & Text" />
           <div className="visual-doc-back" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ width: `${45 + (i % 4) * 12}%` }} />)}</div>
           <div className="visual-resume" aria-hidden="true">
+            <span className="resume-ready">ATS Ready</span>
             <div className="visual-resume-name">Your Name <span><i /><i /></span></div>
+            <p className="visual-resume-role">Your target role</p>
             <div className="visual-resume-contact" />
-            {["Professional Summary", "Skills", "Experience"].map((title, index) => <div className="visual-resume-section" key={title}><strong>{title}</strong>{Array.from({ length: index === 0 ? 3 : 4 }, (_, i) => <i key={i} style={{ width: `${94 - ((i + index) % 3) * 13}%` }} />)}</div>)}
+            {["Professional Summary", "Skills", "Experience", "Education"].map((title, index) => <div className="visual-resume-section" key={title}><strong>{title}</strong>{Array.from({ length: index === 0 ? 3 : 4 }, (_, i) => <i key={i} style={{ width: `${94 - ((i + index) % 3) * 13}%` }} />)}</div>)}
             <small>RESUME PREVIEW</small>
           </div>
           <div className="visual-analysis" aria-hidden="true">
@@ -32,21 +41,34 @@ export default function HomePage() {
           </div>
         </div>
         <div className="landing-copy">
-          <p className="landing-badge">AI RESUME MAKER</p>
-          <h1 id="landing-title">Create, import, and refine your<br className="desktop-break" /> resume with an <span>ATS-focused AI workflow.</span></h1>
-          <p className="landing-description">Build a clean, professional resume, optimize it for a target job, and export matching PDF, Word,<br className="desktop-break" /> and text versions from one editor — powered by AI.</p>
+          <p className="landing-badge">AI-Powered Resume Builder</p>
+          <h1 id="landing-title">Create, import, and<br className="split-title-break" /> refine your resume <span>with AI, built for results.</span></h1>
+          <p className="landing-description">Build a clean, professional resume, tailor it for your target job, and export matching PDF, Word, and text versions — all in one powerful editor.</p>
           <div className="landing-actions">
             <Link className="landing-primary" href="/career-cockpit">Open AI Resume Maker <HomeIcon name="arrow" /></Link>
             <a className="landing-secondary" href="#how-it-works"><span className="play-disc"><HomeIcon name="play" /></span>See How It Works</a>
+          </div>
+          <div className="home-capabilities" aria-label="Resume maker capabilities">
+            <div><strong>ATS Focused</strong><span>Clear, structured resumes</span></div>
+            <div><strong>AI Powered</strong><span>Smart optimization</span></div>
+            <div><strong>Multiple Formats</strong><span>PDF, Word, Text</span></div>
+            <div><strong>One Workspace</strong><span>Edit, tailor and export</span></div>
           </div>
         </div>
         <div className="landing-features" id="how-it-works" aria-label="How it works">
           <Feature icon="document" title="AI-Powered Optimization" text="Tailored for your target role" />
           <Feature icon="shield" title="ATS-Friendly Output" text="Clean, structured and easy to read" />
+          <Feature icon="layout" title="Professional Layout" text="Organized and easy to customize" />
           <Feature icon="download" title="Export in Multiple Formats" text="PDF, Word and Text" />
         </div>
       </section>
       <ResumeShowcase />
+      <section className="home-faq" id="faq" aria-labelledby="faq-title">
+        <p className="eyebrow">A little clarity before you start</p><h2 id="faq-title">Frequently asked questions</h2>
+        <details><summary>Can I import my existing resume?</summary><p>Yes. Open AI Resume Maker and choose Upload / Convert to import a PDF, Word document, or text resume.</p></details>
+        <details><summary>Can I tailor my resume to a job description?</summary><p>Paste a job description in the editor to review the match and use the AI tailoring tools.</p></details>
+        <details><summary>Which export formats are supported?</summary><p>The editor supports PDF, Word and text export options. Download availability depends on your resume and account access.</p></details>
+      </section>
     </main>
   );
 }
@@ -64,6 +86,7 @@ function HomeIcon({ name }) {
     chart: <path d="M5 20v-6M12 20V9M19 20V4" strokeWidth="4" />,
     shield: <><path d="m12 3 8 4v5c0 5-8 9-8 9s-8-4-8-9V7Z" /><path d="m8 12 3 3 5-6" /></>,
     download: <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />,
+    layout: <><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M3 9h18M9 9v12" /></>,
     arrow: <path d="M4 12h16m-6-6 6 6-6 6" />,
     play: <path d="m9 5 11 7-11 7Z" fill="currentColor" stroke="none" />,
   };

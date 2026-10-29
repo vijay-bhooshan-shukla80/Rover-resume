@@ -217,9 +217,9 @@ export function ResumeShowcase() {
   }
 
   return (
-    <section className="showcase-section landing-examples" aria-label="ATS resume examples">
+    <section className="showcase-section landing-examples" id="resume-examples" aria-label="ATS resume examples">
       <div className="section-head showcase-head">
-        <p className="eyebrow">Resume Examples</p>
+        <p className="eyebrow">Professional resume examples</p>
         <h2>Live ATS Resume <span>Examples</span></h2>
         <p>Clean, professional resumes across different roles. See how an ATS-optimized resume looks.</p>
       </div>
@@ -230,7 +230,7 @@ export function ResumeShowcase() {
           onWheel={() => { interactionRef.current.manualUntil = Date.now() + 600; }}
           onKeyDown={() => { interactionRef.current.manualUntil = Date.now() + 600; }}>
           {track.map((resume, index) => (
-            <div className="example-card" key={`${resume.name}-${index}`} aria-hidden={index >= orderedResumes.length ? true : undefined}><article className="mini-resume">
+            <div className="example-card" key={`${resume.name}-${index}`} aria-hidden={index >= orderedResumes.length ? true : undefined}><div className="example-card-title"><span aria-hidden="true">▤</span>{resume.name}</div><article className="mini-resume">
               <h3>{resume.name}</h3>
               <MiniSection title="Professional Summary">
                 <p>{resume.summary}</p>
