@@ -722,15 +722,21 @@ export function ResumeBuilder({ initialPremium = false }) {
 
           <form className={`editor old-editor ${activeTab === "preview" ? "mobile-hidden" : ""}`}>
             <section className="choice-panel">
-              <article className="choice-card static-card">
+              <article className="choice-card static-card score-card ats-score-card">
+                <div className="score-ring" style={{ "--score": `${analysis.readinessScore ?? 0}%` }} aria-hidden="true"><b>{analysis.readinessScore ?? "--"}</b></div>
+                <div className="score-copy">
                 <span>ATS</span>
                 <strong>ATS Readiness Score</strong>
                 <small>{atsLabel}</small>
+                </div>
               </article>
-              <article className="choice-card static-card">
+              <article className="choice-card static-card score-card jd-score-card">
+                <div className="score-ring" style={{ "--score": `${analysis.jobMatchScore ?? 0}%` }} aria-hidden="true"><b>{analysis.jobMatchScore ?? "--"}</b></div>
+                <div className="score-copy">
                 <span>JD</span>
                 <strong>Job Match Score</strong>
                 <small>{jobMatchLabel}</small>
+                </div>
               </article>
               <article className={`ats-hero-score${pageModel.status !== "fit" ? " warning" : ""}`}>
                 <span>Pages</span>
@@ -809,7 +815,7 @@ export function ResumeBuilder({ initialPremium = false }) {
               </div>
             </FormSection>
 
-            <FormSection title="Job Description & ATS Optimization">
+            <FormSection title="Job Description & ATS Optimization" className="jd-editor-card">
               <label className="field">
                 Paste Job Description
                 <textarea
@@ -838,7 +844,7 @@ export function ResumeBuilder({ initialPremium = false }) {
               </div>
             </FormSection>
 
-            <FormSection title="Section Library">
+            <FormSection title="Section Library" className="section-library-card">
               <div className="actions section-add-grid">
                 {["summary", "skills", "experience", "projects", "education", "certifications", "custom"].map((type) => (
                   <button key={type} className="ghost-btn small" type="button" onClick={() => addNewSection(type)}>
@@ -932,6 +938,7 @@ export function ResumeBuilder({ initialPremium = false }) {
                 {(analysis.breakdown || []).map((item) => (
                   <p key={item.label} className={item.percent >= 80 ? "success" : "notice"}>
                     <strong>{item.label}</strong>
+                    <meter min="0" max="100" value={item.percent} aria-label={`${item.label} score`} />
                     <span>{item.points} / {item.max}</span>
                   </p>
                 ))}

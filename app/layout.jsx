@@ -1,5 +1,6 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import "./ui-theme.css";
 import { AppShell } from "@/components/AppShell";
 import { validClerkPublishableKey } from "@/lib/clerk-keys";
 import { clerkConfigured } from "@/lib/auth";

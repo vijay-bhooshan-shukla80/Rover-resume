@@ -1,0 +1,10 @@
+.next-local/
+.next/
+node_modules/
+dist/
+qa-artifacts/
+.env
+.env.*
+*.log
+scratch.txt
+.git/
