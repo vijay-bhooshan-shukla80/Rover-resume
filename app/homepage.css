@@ -231,8 +231,26 @@
   .example-reader-profile .example-dummy-profile { padding-block: 12px; }
   .example-reader-profile .example-contact-details { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .example-reader-profile .example-contact-details > div { display: block; }
-  .example-reader-scroll { overflow: auto; max-height: calc(94dvh - 235px); padding: 18px; background: #ece9f0; overscroll-behavior: contain; }
+  .example-reader-scroll { overflow: auto; max-height: calc(94dvh - 115px); padding: 18px; background: #ece9f0; overscroll-behavior: contain; }
   .example-reader-image { display: block; max-width: none; margin: 0 auto; }
+  /* Landing examples only: real text stays sharp at every reader zoom level. */
+  .sample-resume-open { cursor: zoom-in; border-radius: 8px; }
+  .sample-resume-open:focus-visible { outline: 2px solid #bd8dff; outline-offset: 3px; }
+  .showcase-text-resume { box-sizing: border-box; width: 100%; margin: 0; padding: 22px; border-radius: 8px; background: #fff; color: #111; font-family: Arial, sans-serif; font-size: 11px; line-height: 1.45; font-weight: 400; letter-spacing: 0; text-align: left; overflow-wrap: break-word; font-synthesis: weight; }
+  .showcase-text-resume .sample-resume-identity { margin-bottom: 1.5em; text-align: center; }
+  .showcase-text-resume .sample-resume-identity strong { display: block; margin-bottom: 0.35em; font-size: 2em; line-height: 1.2; font-weight: 700; }
+  .showcase-text-resume .sample-resume-identity div { font-size: 0.95em; line-height: 1.6; overflow-wrap: anywhere; }
+  .showcase-text-resume .sample-resume-identity div span { color: #17529b; text-decoration: underline; }
+  .showcase-text-resume .sample-resume-section { margin-top: 1.3em; }
+  .showcase-text-resume .sample-resume-section h4 { margin: 0 0 0.35em; border-bottom: 1px solid #777; font: inherit; font-size: 1.1em; font-weight: 700; line-height: 1.5; letter-spacing: 0; color: #111; }
+  .showcase-text-resume .sample-resume-section p { margin: 0; color: #111; font: inherit; white-space: pre-line; }
+  .showcase-text-resume .sample-resume-entry { margin-top: 1em; }
+  .showcase-text-resume .sample-resume-entry-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1em; }
+  .showcase-text-resume .sample-resume-entry-heading > :last-child { flex-shrink: 0; }
+  .showcase-text-resume .sample-resume-entry ul { margin: 0.25em 0 0; padding-left: 1.5em; list-style: disc; }
+  .showcase-text-resume .sample-resume-entry li { margin-bottom: 0.25em; }
+  .example-reader-scroll .showcase-text-resume { max-width: none; margin: 0 auto; }
+  @media (max-width: 1050px) { .example-card .showcase-text-resume { padding: 16px; font-size: 10px; } .example-card .sample-resume-entry-heading { flex-wrap: wrap; gap: 0; } }
   @media (max-width: 1050px) { .landing-page .real-resume-examples .example-card { flex-basis: calc((100% - 16px) / 2); } }
   @media (max-width: 600px) { .landing-page .real-resume-examples .example-card { flex-basis: 100%; } }
   @media (max-width: 600px) {
@@ -240,7 +258,7 @@
     .example-reader-toolbar h3 { font-size: 16px; }
     .example-reader-profile .example-contact-details { grid-template-columns: minmax(0, 1fr); gap: 4px; }
     .example-reader-profile .example-contact-details > div { display: grid; }
-    .example-reader-scroll { max-height: calc(94dvh - 330px); padding: 10px; }
+    .example-reader-scroll { max-height: calc(94dvh - 175px); padding: 10px; }
   }
   @media (max-width: 1250px) {
     .home-header { gap: 15px; }

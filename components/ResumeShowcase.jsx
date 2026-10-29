@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { showcaseContent } from "@/lib/showcase-content";
 
 import { showcaseResumes as resumes } from "@/lib/showcase-resumes";
 
@@ -89,7 +89,6 @@ export function ResumeShowcase() {
         <p className="eyebrow">Professional resume examples</p>
         <h2>Live ATS Resume <span>Examples</span></h2>
         <p>Clean, professional resumes across different roles. See how an ATS-optimized resume looks.</p>
-        <p className="example-identity-note">Original resume images. Names and contact details in the card headers are fictional.</p>
       </div>
       <div className="examples-carousel">
         <button className="example-arrow previous" type="button" onClick={() => scrollExamples(-1)} aria-label="Previous resume examples"><Chevron left /></button>
@@ -119,24 +118,32 @@ function Chevron({ left = false }) {
 
 function ResumeIdentity({ resume }) {
   const [location, phone, email] = resume.contact.split("|").map((part) => part.trim());
-  return <div className="example-dummy-profile">
+  return <header className="sample-resume-identity">
     <strong>{resume.fullName}</strong>
-    <dl className="example-contact-details">
-      <div><dt>Location</dt><dd>{location}</dd></div>
-      <div><dt>Phone</dt><dd>{phone}</dd></div>
-      <div><dt>Email</dt><dd>{email}</dd></div>
-    </dl>
-  </div>;
+    <div>{phone} | <span>{email}</span> | {location}</div>
+  </header>;
+}
+
+function SampleResume({ resume, style }) {
+  return <article className="showcase-text-resume" style={style} aria-label={`${resume.fullName} sample resume`}>
+    <ResumeIdentity resume={resume} />
+    {showcaseContent[resume.id].map((section) => <section className="sample-resume-section" key={section.title}>
+      <h4>{section.title}</h4>
+      {section.text ? <p>{section.text}</p> : null}
+      {section.entries?.map((entry) => <div className="sample-resume-entry" key={entry.role}>
+        <div className="sample-resume-entry-heading"><strong>{entry.role}</strong><span>{entry.date}</span></div>
+        {entry.subtitle ? <div className="sample-resume-entry-heading"><span>{entry.subtitle}</span><span>{entry.location}</span></div> : null}
+        {entry.bullets ? <ul>{entry.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}
+      </div>)}
+    </section>)}
+  </article>;
 }
 
 function ResumeDocument({ resume, duplicate, onOpen }) {
   return (
     <>
-      <ResumeIdentity resume={resume} />
       <button type="button" className="example-open-preview" onClick={onOpen} tabIndex={duplicate ? -1 : 0}>View full resume <span aria-hidden="true">↗</span></button>
-      <button type="button" className="example-original-frame" onClick={onOpen} tabIndex={duplicate ? -1 : 0} aria-label={`Read full ${resume.name} resume`} style={{ aspectRatio: `${resume.width} / ${resume.height}` }}>
-        <Image className="example-original-image" src={resume.image} alt={`Original supplied ${resume.name} resume, with unchanged text and formatting`} width={resume.width} height={resume.height} unoptimized />
-      </button>
+      <div role="button" className="sample-resume-open" tabIndex={duplicate ? -1 : 0} aria-label={`Read full ${resume.name} resume`} onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpen(); } }}><SampleResume resume={resume} /></div>
     </>
   );
 }
@@ -159,7 +166,7 @@ function ResumeReader({ resume, onClose }) {
     onCancel={(event) => { event.preventDefault(); onClose(); }}
     onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <header className="example-reader-toolbar">
-      <div><h3 id="example-reader-title">{resume.name}</h3><p>Original resume · Zoom to read every detail</p></div>
+      <div><h3 id="example-reader-title">{resume.name}</h3><p>Sample resume · Zoom to read every detail</p></div>
       <div className="example-reader-controls">
         <button type="button" onClick={() => setZoom((current) => Math.max(0.75, current - 0.25))} disabled={zoom <= 0.75} aria-label="Zoom out">−</button>
         <span aria-live="polite">{Math.round(zoom * 100)}%</span>
@@ -169,9 +176,8 @@ function ResumeReader({ resume, onClose }) {
         <button type="button" autoFocus onClick={onClose} aria-label="Close resume preview">✕</button>
       </div>
     </header>
-    <div className="example-reader-profile"><ResumeIdentity resume={resume} /></div>
     <div className="example-reader-scroll">
-      <Image className="example-reader-image" src={resume.image} alt={`Full original ${resume.name} resume`} width={resume.width} height={resume.height} style={{ width: resume.width * zoom, height: "auto" }} unoptimized />
+      <SampleResume resume={resume} style={{ width: 794 * zoom, fontSize: 14 * zoom, padding: 34 * zoom }} />
     </div>
   </dialog>;
 }
