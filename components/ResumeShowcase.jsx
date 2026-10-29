@@ -136,24 +136,10 @@ function SampleResume({ resume, style }) {
 }
 
 function ResumeDocument({ resume, duplicate, onOpen }) {
-  const frameRef = useRef(null);
-  const [scale, setScale] = useState(0.4);
-  useEffect(() => {
-    const frame = frameRef.current;
-    const document = frame.querySelector(".showcase-text-resume");
-    function fitDocument() {
-      setScale(Math.min((frame.clientWidth - 2) / document.offsetWidth, (frame.clientHeight - 2) / document.offsetHeight, 1));
-    }
-    const observer = new ResizeObserver(fitDocument);
-    observer.observe(frame);
-    observer.observe(document);
-    fitDocument();
-    return () => observer.disconnect();
-  }, []);
   return (
     <>
       <button type="button" className="example-open-preview" onClick={onOpen} tabIndex={duplicate ? -1 : 0}>View full resume <span aria-hidden="true">↗</span></button>
-      <div ref={frameRef} role="button" className="sample-resume-open" tabIndex={duplicate ? -1 : 0} aria-label={`Read full ${resume.name} resume`} onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpen(); } }}><SampleResume resume={resume} style={{ width: 794, fontSize: 14, padding: 28, zoom: scale }} /></div>
+      <div role="button" className="sample-resume-open" tabIndex={duplicate ? -1 : 0} aria-label={`Read full ${resume.name} resume`} onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpen(); } }}><SampleResume resume={resume} /></div>
     </>
   );
 }
