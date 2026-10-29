@@ -60,7 +60,7 @@
   .landing-page .showcase-head h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.025em; } .landing-page .showcase-head h2 span { color: #b476f7; }
   .landing-page .showcase-head p:not(.eyebrow) { margin: 8px 0 0; font-size: 12px; color: #bdb4d9; }
   .examples-carousel { position: relative; max-width: 1170px; margin: auto; }
-  .examples-track { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 4px 1px 7px; }
+  .examples-track { display: flex; gap: 16px; overflow-x: auto; scroll-behavior: auto; scrollbar-width: none; padding: 4px 1px 7px; }
   .examples-track::-webkit-scrollbar { display: none; }
   .example-card { position: relative; flex: 0 0 calc((100% - 48px) / 4); min-width: 0; border: 1px solid #a577d866; border-radius: 15px; background: linear-gradient(130deg, #57427588, #2d234e); padding: 8px; scroll-snap-align: start; box-shadow: inset 0 1px 0 #f1dfff22; transition: border-color 180ms ease, background 180ms ease; }
   .example-card:hover { border-color: #bc8aff; background-color: #5b3880; }
