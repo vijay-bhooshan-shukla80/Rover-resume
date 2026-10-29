@@ -205,15 +205,43 @@
   .home-faq details { padding: 15px 18px; border: 1px solid #9362c533; border-radius: 12px; background: #1d153044; margin-top: 10px; }
   .home-faq summary { cursor: pointer; font-size: 13px; font-weight: 650; color: #e1d5f1; }
   .home-faq details p { margin: 12px 0 0; color: #ada4c7; font-size: 12px; line-height: 1.7; }
-  .landing-page .real-resume-examples .example-card { flex-basis: calc((100% - 32px) / 3); }
+  .landing-page .real-resume-examples .example-card { flex-basis: calc((100% - 16px) / 2); }
   .landing-page .real-resume-examples .example-identity-note { font-size: 12px; color: #ada4c7; }
-  .example-dummy-profile { display: grid; align-content: start; gap: 4px; min-height: 72px; padding: 3px 3px 10px; }
-  .example-dummy-profile strong { font-size: 13px; font-weight: 600; line-height: 1.4; }
-  .example-dummy-profile span { font-size: 12px; font-weight: 400; line-height: 1.45; color: #c4bad5; overflow-wrap: anywhere; }
-  .example-original-frame { display: flex; align-items: flex-start; width: 100%; aspect-ratio: 210 / 297; overflow: hidden; border-radius: 8px; background: #fff; }
+  .example-dummy-profile { display: grid; align-content: start; gap: 9px; padding: 7px 6px 14px; }
+  .example-dummy-profile strong { font-size: 16px; font-weight: 600; line-height: 1.4; }
+  .example-contact-details { display: grid; gap: 5px; margin: 0; }
+  .example-contact-details > div { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 8px; }
+  .example-contact-details dt { font-size: 12px; line-height: 1.5; color: #b0a3c4; }
+  .example-contact-details dd { margin: 0; font-size: 13px; line-height: 1.5; color: #f1e8ff; overflow-wrap: anywhere; }
+  .example-open-preview { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 12px; padding: 10px 12px; border: 1px solid #a77ae15c; border-radius: 8px; background: linear-gradient(110deg, #59338766, #34204866); color: #f4eaff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .example-open-preview:hover { border-color: #bd8dff; background-color: #5b378c; }
+  .example-original-frame { display: flex; align-items: flex-start; width: 100%; padding: 0; border: 0; overflow: hidden; border-radius: 8px; background: #fff; cursor: zoom-in; }
   .example-original-image { display: block; width: 100%; height: 100%; object-fit: contain; object-position: top center; }
+  .example-reader-dialog { width: min(1120px, calc(100vw - 24px)); max-width: none; max-height: 94dvh; padding: 0; border: 1px solid #9765d666; border-radius: 16px; background: #1c1629; color: #f4f0fc; font-family: var(--font-inter-ui), Arial, sans-serif; box-shadow: 0 28px 100px #05020c99; overflow: hidden; }
+  .example-reader-dialog::backdrop { background: #090512d9; backdrop-filter: blur(6px); }
+  .example-reader-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #9468c333; }
+  .example-reader-toolbar h3 { margin: 0; font-size: 18px; line-height: 1.4; font-weight: 600; }
+  .example-reader-toolbar p { margin: 4px 0 0; font-size: 12px; color: #bdb0d1; }
+  .example-reader-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+  .example-reader-controls :is(button, a) { display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; padding: 5px 9px; border: 1px solid #a377ce55; border-radius: 7px; background: #30233e; color: #f0e6ff; font: inherit; font-size: 12px; cursor: pointer; }
+  .example-reader-controls :is(button, a):hover { background: #50316f; }
+  .example-reader-controls button:disabled { opacity: 0.4; cursor: default; }
+  .example-reader-controls > span { min-width: 42px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .example-reader-profile { padding: 0 14px; border-bottom: 1px solid #9468c333; }
+  .example-reader-profile .example-dummy-profile { padding-block: 12px; }
+  .example-reader-profile .example-contact-details { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .example-reader-profile .example-contact-details > div { display: block; }
+  .example-reader-scroll { overflow: auto; max-height: calc(94dvh - 235px); padding: 18px; background: #ece9f0; overscroll-behavior: contain; }
+  .example-reader-image { display: block; max-width: none; margin: 0 auto; }
   @media (max-width: 1050px) { .landing-page .real-resume-examples .example-card { flex-basis: calc((100% - 16px) / 2); } }
   @media (max-width: 600px) { .landing-page .real-resume-examples .example-card { flex-basis: 100%; } }
+  @media (max-width: 600px) {
+    .example-reader-toolbar { padding: 12px; }
+    .example-reader-toolbar h3 { font-size: 16px; }
+    .example-reader-profile .example-contact-details { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .example-reader-profile .example-contact-details > div { display: grid; }
+    .example-reader-scroll { max-height: calc(94dvh - 330px); padding: 10px; }
+  }
   @media (max-width: 1250px) {
     .home-header { gap: 15px; }
     .home-nav { gap: 14px; }
