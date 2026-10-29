@@ -1,0 +1,306 @@
+/* Screen UI only. Never target body, .paper, .mini-resume, resume blocks or iframes.
+   The next/font variable is available on html but applied only to these UI surfaces. */
+@media screen {
+  :is(.landing-page, .rover-sidebar, .workspace-headline, .old-editor,
+      .preview-head, .preview-version-banner, .suggestions, .fit-warning-card,
+      .preview-paywall, .modal-backdrop, .toast, .topbar,
+      .auth-shell, .auth-gate-page, .pricing-page) {
+    --ui-font: var(--font-inter-ui), Arial, sans-serif;
+    font-family: var(--ui-font);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0;
+    font-optical-sizing: auto;
+    font-synthesis: none;
+  }
+
+  /* Landing page chrome; miniature documents retain their own explicit fonts. */
+  .landing-page.split-home {
+    font-family: var(--font-inter-ui), Arial, sans-serif;
+  }
+
+  .landing-page.split-home .home-brand {
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+  }
+
+  .landing-page.split-home .home-nav a,
+  .landing-page.split-home .home-sign-in {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+
+  .landing-page.split-home :is(.landing-primary, .landing-secondary) {
+    font-family: var(--ui-font);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+  }
+
+  .landing-page.split-home .home-account .landing-primary {
+    font-size: 13px;
+  }
+
+  .landing-page.split-home .landing-copy h1 {
+    font-size: clamp(32px, 3.05vw, 47px);
+    font-weight: 700;
+    line-height: 1.14;
+    letter-spacing: -0.03em;
+  }
+
+  .landing-page.split-home .landing-description {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.65;
+    letter-spacing: 0;
+  }
+
+  .landing-page.split-home :is(.landing-badge, .showcase-head .eyebrow) {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.015em;
+  }
+
+  .landing-page.split-home .home-capabilities strong,
+  .landing-page.split-home .landing-feature strong {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
+  .landing-page.split-home .home-capabilities span,
+  .landing-page.split-home .landing-feature p {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0;
+  }
+
+  .landing-page.split-home .visual-callout strong {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+  }
+
+  .landing-page.split-home .visual-callout p {
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.45;
+  }
+
+  .landing-page.split-home :is(.showcase-head h2, .home-faq h2) {
+    font-size: clamp(24px, 2.1vw, 32px);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+  }
+
+  .landing-page.split-home .showcase-head p:not(.eyebrow),
+  .landing-page.split-home .home-faq details p {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: 0;
+  }
+
+  .landing-page.split-home :is(.example-card-title, .home-faq summary) {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
+  .landing-page.split-home .carousel-autoplay {
+    font-family: var(--ui-font);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+
+  /* Editor controls are separate UI surfaces from the adjacent A4 document. */
+  .rover-dashboard.old-builder :is(.side-link, .side-note, .sidebar-group-title) {
+    font-family: var(--ui-font);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: 0;
+  }
+
+  .rover-dashboard.old-builder .sidebar-group-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  .rover-dashboard.old-builder .side-note { font-weight: 400; }
+
+  .rover-dashboard.old-builder .workspace-headline h1 {
+    font-size: clamp(22px, 1.7vw, 28px);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+  }
+
+  .rover-dashboard.old-builder .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.05em;
+  }
+
+  .rover-dashboard.old-builder .section-title h3,
+  .rover-dashboard.old-builder .suggestions h3,
+  .rover-dashboard.old-builder .preview-head strong {
+    font-size: 15px;
+    font-weight: 650;
+    line-height: 1.4;
+    letter-spacing: -0.015em;
+  }
+
+  .rover-dashboard.old-builder .old-editor .field,
+  .rover-dashboard.old-builder .font-control > span {
+    font-family: var(--ui-font);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+
+  .rover-dashboard.old-builder .old-editor .field :is(input, select, textarea),
+  .rover-dashboard.old-builder .modal-backdrop .field :is(input, select, textarea) {
+    font-family: var(--ui-font);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.45;
+    letter-spacing: 0;
+  }
+
+  .rover-dashboard.old-builder .section-title-input {
+    font-family: var(--ui-font);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
+  :is(.rover-dashboard.old-builder, .topbar, .pricing-page, .auth-gate-page)
+    :is(.primary-btn, .ghost-btn, .text-btn, .mini-btn, .remove, .billing-option) {
+    font-family: var(--font-inter-ui), Arial, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+  }
+
+  .rover-dashboard.old-builder :is(.preview-actions, .section-add-grid, .inline-actions, .settings-actions, .font-control) :is(.small, .mini-btn) {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .rover-dashboard.old-builder .score-copy strong {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .rover-dashboard.old-builder :is(.score-copy > span, .ats-hero-score > span) {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.04em;
+  }
+
+  .rover-dashboard.old-builder :is(.score-copy small, .ats-hero-score small, .font-control strong) {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rover-dashboard.old-builder :is(.score-ring b, .ats-hero-score > strong) {
+    font-weight: 650;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rover-dashboard.old-builder :is(.suggestions p, .ats-breakdown strong, .ats-breakdown span) {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0;
+  }
+
+  .rover-dashboard.old-builder :is(.ats-breakdown strong, .ats-breakdown span) {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rover-dashboard.old-builder :is(.preview-version-banner, .preview-version-pill, .version-badge, .notice) {
+    font-family: var(--font-inter-ui), Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.45;
+    letter-spacing: 0;
+  }
+
+  .rover-dashboard.old-builder :is(.preview-version-banner strong, .preview-version-pill, .version-badge) { font-weight: 500; }
+
+  .topbar .brand,
+  .rover-dashboard.old-builder .side-brand {
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+  }
+
+  .rover-dashboard.old-builder .modal-backdrop :is(h2, h3),
+  :is(.auth-gate-page, .pricing-page) :is(h1, h2, h3) {
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+  }
+
+  .rover-dashboard.old-builder .modal-backdrop .field {
+    font-family: var(--ui-font);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0;
+  }
+
+  @media (min-width: 1001px) and (max-width: 1250px) {
+    .landing-page.split-home .home-nav a { font-size: 12px; }
+  }
+
+  @media (max-width: 1000px) {
+    .landing-page.split-home .landing-copy h1 { font-size: clamp(32px, 5vw, 45px); }
+  }
+
+  @media (max-width: 600px) {
+    .landing-page.split-home .home-brand { font-size: 13px; }
+    .landing-page.split-home .home-nav a { font-size: 12px; }
+    .landing-page.split-home .home-account :is(.landing-primary, .home-sign-in) { font-size: 12px; }
+    .landing-page.split-home .landing-copy h1 { font-size: clamp(30px, 8vw, 36px); }
+    .landing-page.split-home .landing-description { font-size: 15px; }
+    .landing-page.split-home .landing-actions :is(.landing-primary, .landing-secondary) { font-size: 13px; }
+    .landing-page.split-home .example-card-title { font-size: 13px; }
+    .landing-page.split-home .landing-feature strong { font-size: 12px; }
+    .landing-page.split-home .landing-feature p { font-size: 11px; }
+    .landing-page.split-home .home-capabilities strong { font-size: 12px; }
+    .landing-page.split-home .home-capabilities span { font-size: 11px; }
+    .rover-dashboard.old-builder .workspace-headline h1 { font-size: 22px; }
+  }
+}
