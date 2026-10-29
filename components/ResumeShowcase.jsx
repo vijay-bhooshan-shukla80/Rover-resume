@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 
 import { showcaseResumes as resumes } from "@/lib/showcase-resumes";
 
@@ -85,7 +86,7 @@ export function ResumeShowcase() {
         <p className="eyebrow">Professional resume examples</p>
         <h2>Live ATS Resume <span>Examples</span></h2>
         <p>Clean, professional resumes across different roles. See how an ATS-optimized resume looks.</p>
-        <p className="example-identity-note">Resume content supplied for these examples. Names and contact details are fictional.</p>
+        <p className="example-identity-note">Original resume images. Names and contact details in the card headers are fictional.</p>
       </div>
       <div className="examples-carousel">
         <button className="example-arrow previous" type="button" onClick={() => scrollExamples(-1)} aria-label="Previous resume examples"><Chevron left /></button>
@@ -94,7 +95,7 @@ export function ResumeShowcase() {
           onWheel={() => { interactionRef.current.manualUntil = Date.now() + 600; }}
           onKeyDown={() => { interactionRef.current.manualUntil = Date.now() + 600; }}>
           {track.map((resume, index) => (
-            <div className="example-card" key={`${resume.name}-${index}`} aria-hidden={index >= orderedResumes.length ? true : undefined}><div className="example-card-title"><span aria-hidden="true">▤</span>{resume.name}</div><ResumeDocument resume={resume} /><div className="example-caption"><span>{resume.name}</span></div></div>
+            <div className="example-card" key={`${resume.name}-${index}`} aria-hidden={index >= orderedResumes.length ? true : undefined}><div className="example-card-title"><span aria-hidden="true">▤</span>{resume.name}</div><ResumeDocument resume={resume} duplicate={index >= orderedResumes.length} /><div className="example-caption"><span>{resume.name}</span></div></div>
           ))}
         </div>
         <button className="example-arrow next" type="button" onClick={() => scrollExamples(1)} aria-label="Next resume examples"><Chevron /></button>
@@ -110,36 +111,16 @@ function Chevron({ left = false }) {
   return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d={left ? "m15 5-7 7 7 7" : "m9 5 7 7-7 7"} /></svg>;
 }
 
-function ResumeDocument({ resume }) {
-  const viewportRef = useRef(null);
-  const [scale, setScale] = useState(0.35);
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const resize = () => setScale(viewport.clientWidth / 794);
-    resize();
-    const observer = new ResizeObserver(resize);
-    observer.observe(viewport);
-    return () => observer.disconnect();
-  }, []);
+function ResumeDocument({ resume, duplicate }) {
   return (
-    <div className="example-document-viewport" ref={viewportRef}>
-      <article className="showcase-page" style={{ fontFamily: resume.documentFont, fontSize: resume.bodySize, transform: `scale(${scale})` }} aria-label={`${resume.name} resume with fictional contact details`}>
-        <header className="showcase-identity"><h3>{resume.fullName}</h3><p>{resume.contact}</p></header>
-        {resume.sections.map((section) => (
-          <section className="showcase-doc-section" key={section.title}>
-            <h4>{section.title}</h4>
-            {section.text ? <p>{section.text}</p> : null}
-            {section.entries?.map((entry) => (
-              <div className="showcase-doc-entry" key={`${entry.title}|${entry.subtitle || ""}|${entry.dates || ""}`}>
-                <div className="showcase-doc-row"><strong>{entry.title}</strong>{entry.dates ? <span>{entry.dates}</span> : null}</div>
-                {entry.subtitle || entry.location ? <div className="showcase-doc-row"><span>{entry.subtitle}</span><span>{entry.location}</span></div> : null}
-                {entry.bullets?.length ? <ul>{entry.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}
-              </div>
-            ))}
-          </section>
-        ))}
-      </article>
-    </div>
+    <>
+      <div className="example-dummy-profile">
+        <strong>{resume.fullName}</strong>
+        <span>{resume.contact}</span>
+      </div>
+      <a className="example-original-frame" href={resume.image} target="_blank" rel="noopener noreferrer" tabIndex={duplicate ? -1 : 0} aria-label={`Open original ${resume.name} resume image`}>
+        <Image className="example-original-image" src={resume.image} alt={`Original supplied ${resume.name} resume, with unchanged text and formatting`} width={resume.width} height={resume.height} unoptimized />
+      </a>
+    </>
   );
 }

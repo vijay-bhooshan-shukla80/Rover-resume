@@ -207,21 +207,11 @@
   .home-faq details p { margin: 12px 0 0; color: #ada4c7; font-size: 12px; line-height: 1.7; }
   .landing-page .real-resume-examples .example-card { flex-basis: calc((100% - 32px) / 3); }
   .landing-page .real-resume-examples .example-identity-note { font-size: 12px; color: #ada4c7; }
-  .example-document-viewport { position: relative; width: 100%; aspect-ratio: 210 / 297; overflow: hidden; border-radius: 8px; background: #fff; }
-  .showcase-page { position: absolute; top: 0; left: 0; width: 794px; min-height: 1123px; padding: 32px 34px; transform-origin: top left; color: #111; background: #fff; font-size: 12px; font-weight: 400; line-height: 1.3; letter-spacing: 0; text-align: left; }
-  .showcase-page .showcase-identity { margin-bottom: 17px; text-align: center; }
-  .showcase-page .showcase-identity h3 { margin: 0 0 6px; font-size: 22px; font-weight: 700; line-height: 1.2; letter-spacing: 0; }
-  .showcase-page .showcase-identity p { margin: 0; font-size: 11px; line-height: 1.4; }
-  .showcase-page .showcase-doc-section { margin-top: 13px; }
-  .showcase-page .showcase-doc-section h4 { margin: 0 0 5px; padding: 0 0 2px; border-bottom: 1px solid #777; font-size: 12px; font-weight: 700; line-height: 1.25; letter-spacing: 0; }
-  .showcase-page .showcase-doc-section p { margin: 0; font-size: inherit; line-height: inherit; }
-  .showcase-page .showcase-doc-entry { margin-top: 8px; }
-  .showcase-page .showcase-doc-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-  .showcase-page .showcase-doc-row > :first-child { min-width: 0; }
-  .showcase-page .showcase-doc-row > :nth-child(2) { flex-shrink: 0; text-align: right; white-space: nowrap; }
-  .showcase-page .showcase-doc-row strong { font-weight: 600; }
-  .showcase-page .showcase-doc-entry ul { padding-left: 16px; margin: 4px 0 0; }
-  .showcase-page .showcase-doc-entry li { margin: 0 0 4px; padding-left: 1px; }
+  .example-dummy-profile { display: grid; align-content: start; gap: 4px; min-height: 72px; padding: 3px 3px 10px; }
+  .example-dummy-profile strong { font-size: 13px; font-weight: 600; line-height: 1.4; }
+  .example-dummy-profile span { font-size: 12px; font-weight: 400; line-height: 1.45; color: #c4bad5; overflow-wrap: anywhere; }
+  .example-original-frame { display: flex; align-items: flex-start; width: 100%; aspect-ratio: 210 / 297; overflow: hidden; border-radius: 8px; background: #fff; }
+  .example-original-image { display: block; width: 100%; height: 100%; object-fit: contain; object-position: top center; }
   @media (max-width: 1050px) { .landing-page .real-resume-examples .example-card { flex-basis: calc((100% - 16px) / 2); } }
   @media (max-width: 600px) { .landing-page .real-resume-examples .example-card { flex-basis: 100%; } }
   @media (max-width: 1250px) {
