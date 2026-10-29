@@ -168,7 +168,7 @@ function ResumeReader({ resume, onClose }) {
         <span aria-live="polite">{Math.round(zoom * 100)}%</span>
         <button type="button" onClick={() => setZoom((current) => Math.min(2.5, current + 0.25))} disabled={zoom >= 2.5} aria-label="Zoom in">+</button>
         <button type="button" onClick={() => setZoom(1)}>100%</button>
-        <a href={resume.image} target="_blank" rel="noopener noreferrer">Open original ↗</a>
+        {resume.image ? <a href={resume.image} target="_blank" rel="noopener noreferrer">Open original ↗</a> : null}
         <button type="button" autoFocus onClick={onClose} aria-label="Close resume preview">✕</button>
       </div>
     </header>
