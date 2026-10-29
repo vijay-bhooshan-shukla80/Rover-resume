@@ -236,9 +236,10 @@
   .example-reader-scroll { overflow: auto; max-height: calc(94dvh - 115px); padding: 18px; background: #ece9f0; overscroll-behavior: contain; }
   .example-reader-image { display: block; max-width: none; margin: 0 auto; }
   /* Landing examples only: real text stays sharp at every reader zoom level. */
+  .real-resume-examples .examples-track { align-items: flex-start; }
   .real-resume-examples .example-card { display: flex; flex-direction: column; }
   .real-resume-examples .example-card-title, .real-resume-examples .example-open-preview { flex-shrink: 0; }
-  .sample-resume-open { flex: 1; width: 100%; cursor: zoom-in; border-radius: 8px; background: #fff; }
+  .sample-resume-open { flex: 0 0 auto; width: 100%; cursor: zoom-in; border-radius: 8px; background: #fff; }
   .sample-resume-open .showcase-text-resume { width: 100%; padding: 20px; font-size: 13px; line-height: 1.5; }
   .sample-resume-open .sample-resume-section { margin-top: 0.9em; }
   .sample-resume-open .sample-resume-entry { margin-top: 0.8em; }
