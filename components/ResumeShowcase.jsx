@@ -1,3 +1,7 @@
+"use client";
+
+import { useRef } from "react";
+
 const resumes = [
   {
     name: "MERN Stack Developer",
@@ -138,18 +142,31 @@ const resumes = [
 ];
 
 export function ResumeShowcase() {
-  const track = [...resumes, ...resumes];
+  const carouselRef = useRef(null);
+  const track = [resumes[3], resumes[4], resumes[5], resumes[0], ...resumes.filter((_, index) => ![0, 3, 4, 5].includes(index))];
+  function scrollExamples(direction) {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+    const card = carousel.querySelector(".example-card");
+    const step = (card?.getBoundingClientRect().width || 300) + 16;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const atStart = carousel.scrollLeft <= 2;
+    const atEnd = carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 2;
+    const left = direction < 0 && atStart ? carousel.scrollWidth : direction > 0 && atEnd ? 0 : carousel.scrollLeft + direction * step;
+    carousel.scrollTo({ left, behavior: reduceMotion ? "auto" : "smooth" });
+  }
   return (
-    <section className="showcase-section" aria-label="ATS resume examples">
+    <section className="showcase-section landing-examples" aria-label="ATS resume examples">
       <div className="section-head showcase-head">
         <p className="eyebrow">Resume Examples</p>
-        <h2>Live ATS Resume Examples</h2>
-        <p>Clean, parser-friendly resumes across different roles.</p>
+        <h2>Live ATS Resume <span>Examples</span></h2>
+        <p>Clean, professional resumes across different roles. See how an ATS-optimized resume looks.</p>
       </div>
-      <div className="resume-marquee">
-        <div className="resume-track">
+      <div className="examples-carousel">
+        <button className="example-arrow previous" type="button" onClick={() => scrollExamples(-1)} aria-label="Previous resume examples"><Chevron left /></button>
+        <div className="examples-track" ref={carouselRef} tabIndex={0} aria-label="Scroll resume examples">
           {track.map((resume, index) => (
-            <article className="mini-resume" key={`${resume.name}-${index}`}>
+            <div className="example-card" key={`${resume.name}-${index}`}><article className="mini-resume">
               <h3>{resume.name}</h3>
               <MiniSection title="Professional Summary">
                 <p>{resume.summary}</p>
@@ -186,12 +203,17 @@ export function ResumeShowcase() {
                   <strong>{resume.education}</strong>
                 </p>
               </MiniSection>
-            </article>
+            </article><div className="example-caption"><span>{resume.name}</span></div></div>
           ))}
         </div>
+        <button className="example-arrow next" type="button" onClick={() => scrollExamples(1)} aria-label="Next resume examples"><Chevron /></button>
       </div>
     </section>
   );
+}
+
+function Chevron({ left = false }) {
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d={left ? "m15 5-7 7 7 7" : "m9 5 7 7-7 7"} /></svg>;
 }
 
 function MiniSection({ title, children }) {
