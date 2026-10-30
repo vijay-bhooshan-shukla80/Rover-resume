@@ -304,7 +304,7 @@ test("one structured Gemini request, source/JD separation, one safe malformed JS
       const body = JSON.parse(options.body);
       assert.equal(options.headers["x-goog-api-key"], "test-key");
       assert.ok(!url.includes("test-key"));
-      assert.equal(body.generationConfig.temperature, 0.1);
+      assert.equal(body.generationConfig.temperature, 0.2);
       assert.ok(body.generationConfig.responseJsonSchema);
       assert.match(body.systemInstruction.parts[0].text, /never use the JD as evidence/);
       if (calls === 2) {
@@ -315,7 +315,7 @@ test("one structured Gemini request, source/JD separation, one safe malformed JS
       return calls === 1 ? mockResponse("{broken") : mockResponse(fixture());
     },
   });
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
   assert.equal(result.resume.targetRole, "Customer Service Adviser");
   assert.equal(result.resume.rawImport.rawText, source);
 });
@@ -374,17 +374,18 @@ test("quota failure during a cosmetic quality retry retains the fact-validated r
   } finally {globalThis.fetch=originalFetch;}
 });
 
-test("focused bullet rewrite updates density without replacing candidate facts", async () => {
+test("obsolete or malformed refinement shape retains the validated candidate facts", async () => {
   const originalFetch=globalThis.fetch;let calls=0;
   const bullet='Assisted 20 customers daily, addressing enquiries and resolving service issues while supporting sales through clear communication and practical assistance in a customer-facing role.';
   globalThis.fetch=async()=>++calls===1 ? mockResponse(fixture()) : mockResponse({edits:[{id:'2:0',bullets:[bullet]}]});
   try {
     const result=await parseResumeWithGemini({rawText:source},{apiKey:'test',model:'gemini-3.5-flash-lite'});
     const entry=result.resume.sections.find(s=>s.type==='experience').content.entries[0];
-    assert.equal(entry.bullets[0],bullet);
+    assert.notEqual(entry.bullets[0],bullet);
+    assert.ok(entry.bullets.some(b=>b.includes("20")));
     assert.equal(entry.organization,'Northwind');
     assert.equal(result.resume.profile.email,'avery@example.test');
-    assert.equal(calls,2);
+    assert.equal(calls,3);
   } finally {globalThis.fetch=originalFetch;}
 });
 

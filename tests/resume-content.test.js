@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeContentRequirements, optimizeResumeContent, resolveContentTarget, sourceEmploymentRecords } from '../lib/resume-content.js';
+import { analyzeContentRequirements, optimizeResumeContent, resolveContentTarget, sourceEmploymentRecords, summaryLineCount } from '../lib/resume-content.js';
 
 const entry = (title, organization = '', dateRange = '', bullets = []) => ({ title, organization, dateRange, location: '', description: '', subtitle: '', url: '', bullets });
 const resume = ({ role='', summary='', skills=[], jobs=[], projects=[] }={}) => ({ profile:{fullName:'Jordan Example',email:'jordan@example.test'}, targetRole:role, documentSettings:{pageSize:'A4',resumeLength:1,typographyPreset:'default'}, sections:[
@@ -24,11 +24,27 @@ Two Player Game | 2025
 EDUCATION
 BTech | Example University`;
 
+test('short summary expands to five measured lines from verified duties without changing other sections',()=>{
+ const input=resume({role:'Python Developer',summary:'Python Developer candidate transitioning into the role.',skills:['Python','SQL'],
+ jobs:[entry('Python Programming Intern','Sample Labs','',[
+ 'Completed remote Python programming tasks and debugging exercises.',
+ 'Strengthened core programming concepts and code structure through practical application.',
+ 'Completed technical assignments within a structured professional learning environment.'
+ ])],projects:[entry('Two Player Game','','2025',[
+ 'Developed a game using Python and Pygame, implementing keyboard controls, shooting mechanics, collision detection and health tracking.',
+ 'Organised reusable components using Object-Oriented Programming.'
+ ])]});
+ const result=optimizeResumeContent(input,developerSource,{targetRole:'Python Developer',jobDescription:'Python and SQL required.'}).resume;
+ assert.ok(summaryLineCount(result.sections[0].content.text)>=5);
+ assert.doesNotMatch(result.sections[0].content.text,/\n|Docker|Django|\d+ years/);
+ assert.deepEqual(result.documentSettings,input.documentSettings);
+});
+
 test('target role alignment replaces unrelated QA identity and unsupported years without upgrading employment',()=>{
  const input=resume({role:'Full Stack Developer',summary:'Motivated QA Engineer with 1 year of experience.',skills:['Python','SQL'],jobs:[entry('Python Programming Intern','Sample Labs')],projects:[entry('Two Player Game','','2025',['Developed a game.'])]});
  const before=structuredClone(input);
  const result=optimizeResumeContent(input,developerSource,{targetRole:'Full Stack Developer',jobDescription:'Python and SQL development. Django and Docker required.'});
- assert.match(result.resume.sections[0].content.text,/pursuing Full Stack Developer/);
+ assert.match(result.resume.sections[0].content.text,/Full Stack Developer candidate transitioning/);
  assert.doesNotMatch(result.resume.sections[0].content.text,/QA Engineer|1 year|Django|Docker/);
  assert.equal(result.resume.sections[2].content.entries[0].title,'Python Programming Intern');
  assert.ok(result.audit.warnings.some(w=>w.code==='missing_employment_dates'));
@@ -142,7 +158,7 @@ test('previously unknown tools are extracted from the actual JD rather than a fi
 test('a target management identity is framed as a transition when no managerial history exists',()=>{
  const source='EXPERIENCE\nCustomer Adviser | Sample Retail | Jan 2023 - Dec 2024\n- Assisted customers and resolved service issues.\nSKILLS\nCustomer Service';
  const result=optimizeResumeContent(resume({summary:'Customer Success Manager delivering service excellence.',jobs:[entry('Customer Adviser','Sample Retail','Jan 2023 - Dec 2024')]}),source,{targetRole:'Customer Success Manager',jobDescription:'Customer Service required.'});
- assert.match(result.resume.sections[0].content.text,/pursuing Customer Success Manager opportunities/);
+ assert.match(result.resume.sections[0].content.text,/Customer Success Manager candidate transitioning/);
  assert.equal(result.resume.sections[2].content.entries[0].title,'Customer Adviser');
 });
 
