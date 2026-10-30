@@ -14,6 +14,24 @@ import {
 } from "../lib/ai-resume.js";
 import { unzipEntries, validateDocxBytes } from "../lib/zip-utils.js";
 
+test('uploaded Word documents flow naturally without forced preview page boundaries', async()=>{
+  const resume=createDefaultWorkingResume();
+  resume.profile.fullName='Pagination Example';
+  resume.documentSettings.resumeLength=2;
+  resume.sections.find(s=>s.type==='experience').content.entries=Array.from({length:12},(_,i)=>({
+    id:`job-${i}`,title:`Service Delivery Manager ${i+1}`,organization:'Example Services',dateRange:'2011 - 2014',location:'Melbourne',subtitle:'',description:'',url:'',
+    bullets:Array.from({length:5},(_,j)=>`Coordinated regional service operations and stakeholder reporting for documented project ${j+1}, maintaining operational records and supporting service delivery across internal teams.`)
+  }));
+  assert.ok(getPaginatedDocumentModel(resume).pages.length>1);
+  const xml=async r=>new TextDecoder().decode(unzipEntries(new Uint8Array(await buildDocxFromCanonical(r).arrayBuffer())).get('word/document.xml'));
+  const created=await xml(resume);
+  const uploaded=await xml({...resume,rawImport:{provider:'gemini'}});
+  assert.match(created,/<w:pageBreakBefore\/>/);
+  assert.doesNotMatch(uploaded,/<w:pageBreakBefore\/>/);
+  assert.equal((uploaded.match(/Service Delivery Manager/g)||[]).length,12);
+  assert.equal((uploaded.match(/Coordinated regional service operations/g)||[]).length,60);
+});
+
 test("legacy resumes normalize into canonical sections without losing core fields", () => {
   const canonical = legacyResumeToCanonical({
     name: "Vijay Shukla",
