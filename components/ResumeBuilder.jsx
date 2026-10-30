@@ -64,6 +64,7 @@ export function ResumeBuilder({ initialPremium = false }) {
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importLoading, setImportLoading] = useState(false);
+  const [importPhase, setImportPhase] = useState("idle");
   const [uploadInfo, setUploadInfo] = useState(null);
   const [uploadTargetRole, setUploadTargetRole] = useState("");
   const [importError, setImportError] = useState("");
@@ -214,6 +215,7 @@ export function ResumeBuilder({ initialPremium = false }) {
     importRevisionRef.current += 1;
     importBusyRef.current = true;
     setImportLoading(true);
+    setImportPhase("reading");
     setUploadInfo({ name: file.name, status: "Reading file...", chars: 0 });
     const lower = file.name.toLowerCase();
     try {
@@ -248,6 +250,7 @@ export function ResumeBuilder({ initialPremium = false }) {
     } finally {
       importBusyRef.current = false;
       setImportLoading(false);
+      setImportPhase("idle");
     }
   }
 
@@ -264,6 +267,7 @@ export function ResumeBuilder({ initialPremium = false }) {
     const revision = importRevisionRef.current;
     importBusyRef.current = true;
     setImportLoading(true);
+    setImportPhase("converting");
     setImportError("");
     try {
       const response = await fetch("/api/resume/optimize", {
@@ -301,6 +305,7 @@ export function ResumeBuilder({ initialPremium = false }) {
     } finally {
       importBusyRef.current = false;
       setImportLoading(false);
+      setImportPhase("idle");
     }
   }
 
@@ -616,17 +621,14 @@ export function ResumeBuilder({ initialPremium = false }) {
               return;
             }
             if (item.type === "bullet") {
-              const bulletX = margin + 2;
+              const bulletX = margin + (pageModel.textAlignment ? 0 : 2);
               const bulletIndent = preset.bulletIndentPt || 15;
               const textX = margin + bulletIndent;
               const lines = item.lines?.length ? item.lines : doc.splitTextToSize(item.text, pageWidth - margin * 2 - bulletIndent);
               if (lines.length) {
                 doc.text("•", bulletX, y);
-                doc.text(lines[0], textX, y);
-                for (let index = 1; index < lines.length; index += 1) {
-                  y += size * 1.15;
-                  doc.text(lines[index], textX, y);
-                }
+                drawPdfParagraph(doc, lines, textX, y, pageWidth - margin - textX, size * 1.15, { justify: Boolean(pageModel.textAlignment) });
+                y += Math.max(0, lines.length - 1) * size * 1.15;
               }
               y += size * 1.15 + size * item.after * 0.28;
               return;
@@ -969,6 +971,7 @@ export function ResumeBuilder({ initialPremium = false }) {
           importText={importText}
           uploadInfo={uploadInfo}
           importLoading={importLoading}
+          importPhase={importPhase}
           importError={importError}
           targetRole={uploadTargetRole}
           jobDescription={jobDescription}
@@ -1139,27 +1142,28 @@ function EntrySectionEditor({ section, onPatch }) {
   );
 }
 
-function UploadModal({ importText, uploadInfo, importLoading, importError, targetRole, jobDescription, setImportText, setTargetRole, setJobDescription, onClose, onFile, onConvert }) {
+function UploadModal({ importText, uploadInfo, importLoading, importPhase, importError, targetRole, jobDescription, setImportText, setTargetRole, setJobDescription, onClose, onFile, onConvert }) {
   return (
-    <div className="modal-backdrop resume-import-backdrop" role="dialog" aria-modal="true" aria-labelledby="resume-import-title">
+    <div className="modal-backdrop resume-import-backdrop" role="dialog" aria-modal="true" aria-busy={importLoading} aria-labelledby="resume-import-title">
       <div className="modal-card upload-modal old-upload-modal resume-import-card">
-        <button className="popup-close" type="button" onClick={onClose} aria-label="Close resume import"><ImportIcon name="close" /></button>
+        <button className="popup-close" type="button" onClick={onClose} disabled={importLoading} aria-label="Close resume import"><ImportIcon name="close" /></button>
         <p className="eyebrow"><span className="import-heading-icon"><ImportIcon name="document" /></span>Resume Import</p>
         <h2 id="resume-import-title">Upload resume source for conversion</h2>
         <p className="muted-small">Supported: PDF, DOCX, TXT, MD, and CSV. Raw import text will be preserved for review and recovery.</p>
         <label className="drop">
           <span className="import-upload-icon"><ImportIcon name="upload" /></span>
           <span>Choose PDF, DOCX, or TXT</span>
-          <input aria-label="Choose resume file" type="file" accept=".txt,.md,.csv,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => onFile(e.target.files?.[0])} />
+          <input aria-label="Choose resume file" type="file" disabled={importLoading} accept=".txt,.md,.csv,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => onFile(e.target.files?.[0])} />
         </label>
         {uploadInfo ? <div className="upload-status"><strong>{uploadInfo.name}</strong><span>{uploadInfo.status}{uploadInfo.chars ? ` - ${uploadInfo.chars} characters` : ""}</span></div> : null}
-        <label className="field"><span className="import-field-label"><ImportIcon name="person" />Target role</span><input placeholder="e.g. Software Engineer, Product Manager..." value={targetRole} onChange={(e) => setTargetRole(e.target.value)} /></label>
-        <label className="field"><span className="import-field-label"><ImportIcon name="document" />Job description</span><textarea placeholder="Paste the job description here..." rows={3} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} /></label>
-        <label className="field"><span className="import-field-label"><ImportIcon name="book" />Raw import text</span><textarea placeholder="Raw resume text will appear here..." rows={6} value={importText} onChange={(e) => setImportText(e.target.value)} /></label>
+        <label className="field"><span className="import-field-label"><ImportIcon name="person" />Target role</span><input disabled={importLoading} placeholder="e.g. Software Engineer, Product Manager..." value={targetRole} onChange={(e) => setTargetRole(e.target.value)} /></label>
+        <label className="field"><span className="import-field-label"><ImportIcon name="document" />Job description</span><textarea disabled={importLoading} placeholder="Paste the job description here..." rows={3} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} /></label>
+        <label className="field"><span className="import-field-label"><ImportIcon name="book" />Raw import text</span><textarea disabled={importLoading} placeholder="Raw resume text will appear here..." rows={6} value={importText} onChange={(e) => setImportText(e.target.value)} /></label>
         {importError ? <p className="notice">{importError}</p> : null}
+        {importLoading ? <p className="resume-import-progress" role="status" aria-live="polite">{importPhase === "reading" ? "Reading your resume file…" : "AI is converting your resume. Please wait…"}</p> : null}
         <div className="modal-actions">
-          <button className="ghost-btn" type="button" onClick={onClose}>Cancel</button>
-          <button className="primary-btn" type="button" onClick={onConvert} disabled={importLoading}><ImportIcon name="sparkles" />{importLoading ? "Converting..." : "Convert Resume"}</button>
+          <button className="ghost-btn" type="button" onClick={onClose} disabled={importLoading}>Cancel</button>
+          <button className="primary-btn" type="button" onClick={onConvert} disabled={importLoading} aria-busy={importLoading}>{importLoading ? <span className="resume-import-spinner" aria-hidden="true" /> : <ImportIcon name="sparkles" />}{importLoading ? (importPhase === "reading" ? "Reading file…" : "Converting…") : "Convert Resume"}</button>
         </div>
       </div>
     </div>
@@ -1693,6 +1697,7 @@ function resumePaperStyle(pageModel) {
     "--resume-heading-size": `${preset.headingSize || 11}pt`,
     "--resume-body-size": `${preset.bodySize || 9.8}pt`,
     "--resume-line-height": String(preset.lineHeight || 1.16),
+    "--resume-text-align": pageModel.textAlignment || "justify",
     "--resume-heading-gap": `${Math.max(10, Math.round((preset.headingSpacing || 0.9) * 12))}px`,
     "--resume-paragraph-gap": `${Math.max(4, Math.round((preset.paragraphSpacing || 0.42) * 10))}px`,
     "--resume-bullet-gap": `${Math.max(2, Math.round((preset.bulletSpacing || 0.32) * 8))}px`,

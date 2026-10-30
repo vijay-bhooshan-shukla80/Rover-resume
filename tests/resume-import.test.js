@@ -5,8 +5,8 @@ import vm from "node:vm";
 import JSZip from "jszip";
 import { jsPDF } from "jspdf";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { checkResumeQualityGate, parseResumeWithGemini } from "../lib/gemini-resume-import.js";
-import { cleanResumeImportText, combineResumeImportSources, mapParsedResumeToExistingSchema, pdfTextItemsToLines, validateParsedResume } from "../lib/resume-import.js";
+import { checkResumeQualityGate, parseResumeWithGemini, postProcessParsedResume } from "../lib/gemini-resume-import.js";
+import { cleanResumeImportText, combineResumeImportSources, extractSourceSkills, mapParsedResumeToExistingSchema, pdfTextItemsToLines, validateParsedResume, repairGeneratedOptionalLinks } from "../lib/resume-import.js";
 import { extractDocxResumeText } from "../lib/docx-resume-import.js";
 import { analyzeResume, buildDocxFromCanonical, buildResumeHtmlDocument, canonicalToPlainText, createDefaultWorkingResume, expectedVisibleStrings, getPaginatedDocumentModel } from "../lib/ai-resume.js";
 import { validateDocxBytes } from "../lib/zip-utils.js";
@@ -48,6 +48,76 @@ MS Excel, Microsoft Excel, Java Script, Javascript
 PROFESSIONAL CERTIFICATIONS
 Service Certificate | City Institute | 2023`;
 const makeEntry = (values = {}) => ({ title: "", organization: "", subtitle: "", location: "", dateRange: "", description: "", bullets: [], url: "", ...values });
+test("upload paragraphs and bullets stay justified while Create Resume keeps its layout", async () => {
+  const created = mapParsedResumeToExistingSchema(fixture().resume);
+  const uploaded = structuredClone(created);
+  uploaded.rawImport = { provider: 'gemini', rawText: source };
+  const uploadModel = getPaginatedDocumentModel(uploaded);
+  assert.equal(uploadModel.textAlignment, 'justify');
+  assert.ok(uploadModel.typography.bodySize >= 10);
+  assert.equal(getPaginatedDocumentModel(created).textAlignment, undefined);
+  const styles = async resume => (await JSZip.loadAsync(await buildDocxFromCanonical(resume).arrayBuffer())).file('word/styles.xml').async('string');
+  assert.match(await styles(uploaded), /w:styleId="Normal"[\s\S]*?w:jc w:val="both"/);
+  assert.match(await styles(uploaded), /w:styleId="BulletItem"[\s\S]*?w:jc w:val="both"/);
+  assert.match(await styles(created), /w:styleId="BulletItem"[\s\S]*?w:jc w:val="both"/);
+  assert.match(buildResumeHtmlDocument(uploaded), /--resume-text-align:justify/);
+  assert.match(buildResumeHtmlDocument(created), /--resume-text-align:justify/);
+  assert.equal(uploadModel.typography.bulletIndentPt, 9);
+  assert.match(await styles(uploaded), /w:left="180" w:hanging="180"/);
+  assert.match(await styles(created), /w:left="360" w:hanging="180"/);
+});
+
+test("existing uploaded resumes hide the target label without removing target metadata", () => {
+  const uploaded=mapParsedResumeToExistingSchema(fixture().resume,{rawImport:{provider:'gemini',rawText:source}});
+  uploaded.sections.find(s=>s.type==='summary').content.text='Target role: Customer Adviser.\nCustomer Adviser resolving service issues.';
+  assert.ok(!canonicalToPlainText(uploaded).includes('Target role:'));
+  assert.equal(uploaded.targetRole,'Customer Adviser');
+});
+test("upload mapping removes repeated job and qualification labels while preserving distinct details", () => {
+  const parsed = fixture().resume;
+  const job = parsed.sections.find(s => s.type === 'experience').content.entries[0];
+  job.subtitle = job.title;
+  job.description = job.title;
+  job.bullets.push(job.title);
+  const education = parsed.sections.find(s => s.type === 'education').content.entries[0];
+  education.subtitle = education.title;
+  const result = mapParsedResumeToExistingSchema(parsed);
+  const mappedJob = result.sections.find(s => s.type === 'experience').content.entries[0];
+  assert.equal(mappedJob.description, '');
+  assert.ok(!mappedJob.bullets.includes(job.title));
+  assert.equal(result.sections.find(s => s.type === 'education').content.entries[0].description, '');
+  education.subtitle = 'Honours';
+  assert.match(mapParsedResumeToExistingSchema(parsed).sections.find(s => s.type === 'education').content.entries[0].description, /Honours/);
+});
+test("upload skills do not acquire historical job titles or isolated schedule words from a JD", () => {
+  const parsed = fixture().resume;
+  parsed.sections.find(s => s.type === 'skills').content.items = ['Customer Service'];
+  const processed = postProcessParsedResume(parsed, 'Retail Sales Associate', 'Sales Associate with customer service and time management experience.', 'Sales Associate. Full time. Customer service and time management.');
+  const skills = processed.sections.find(s => s.type === 'skills').content.items;
+  assert.ok(!skills.some(s => /^(?:Sales Associate|Time|Full|Experience)$/i.test(s)));
+  assert.ok(skills.includes('Customer Service'));
+});
+test("upload skill inventory preserves parenthesized tools and strips category prefixes", () => {
+  const source = 'Core Competencies\n• Power BI (DAX, RLS), Data Modelling\n• Reporting Automation (Power Automate, SharePoint), ServiceNow Audits\n• Construction & Site : Site Operations, Site Visits\nEducation\nDegree';
+  const skills = extractSourceSkills(source);
+  assert.ok(skills.includes('Power BI (DAX, RLS)'));
+  assert.ok(skills.includes('Reporting Automation (Power Automate, SharePoint)'));
+  assert.ok(skills.includes('Site Operations'));
+  assert.ok(!skills.some(s => /^RLS\)|^Power BI \(DAX$|Construction & Site/.test(s)));
+});
+test("skills named Project Lifecycle and category lines are not mistaken for section boundaries", () => {
+  const skills = extractSourceSkills('Skills & Competencies\nConstruction & Site - Site Operations,\nProject Lifecycle\nProject Delivery & Methods - Agile, UAT\nStakeholder Engagement - Facilitation, Communication\nEducation\nDegree');
+  assert.ok(skills.includes('Project Lifecycle'));
+  assert.ok(skills.includes('Agile'));
+  assert.ok(skills.includes('Communication'));
+  assert.ok(!skills.some(s => /Degree|Construction & Site|Stakeholder Engagement -/.test(s)));
+});
+test("explicit software names containing Manager remain in uploaded skills", () => {
+  const result=postProcessParsedResume(fixture().resume,'Marketing Coordinator','Skills\nGoogle Tag Manager, Adobe Experience Manager\nEducation\nDegree','Marketing coordinator with Google Tag Manager.');
+  const skills=result.sections.find(s=>s.type==='skills').content.items;
+  assert.ok(skills.includes('Google Tag Manager'));
+  assert.ok(skills.includes('Adobe Experience Manager'));
+});
 function fixture() {
   return {
     resume: {
@@ -65,6 +135,115 @@ function fixture() {
   };
 }
 const mockResponse = (payload) => new Response(JSON.stringify({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: typeof payload === "string" ? payload : JSON.stringify(payload) }] } }] }), { headers: { "Content-Type": "application/json" } });
+
+test("upload content cleanup retains the existing resume format and never selects Harshibar", () => {
+  const payload = fixture();
+  payload.resume.sections[2].content.entries[0].bullets = [
+    'Delivered achieved customer service targets.',
+    'Delivered resolve customer enquiries.',
+    'Delivered served customers professionally.',
+    'Delivered produced accurate service records.',
+    'Maintained customer service records.',
+  ];
+  const processed = postProcessParsedResume(payload, 'Customer Adviser', source);
+  assert.ok(!processed.resume.sections[0].content.text.includes('Target role:'));
+  const firstSummary = processed.resume.sections[0].content.text;
+  assert.equal(postProcessParsedResume(processed, 'Customer Adviser', source).resume.sections[0].content.text, firstSummary);
+  const bullets = processed.resume.sections[2].content.entries[0].bullets;
+  assert.deepEqual(bullets, ['Achieved customer service targets.', 'Resolve customer enquiries.', 'Served customers professionally.', 'Produced accurate service records.', 'Maintained customer service records.']);
+  const settings = { pageSize: 'A4', resumeLength: 1, bodySize: 10, headingSize: 11.4, nameSize: 20 };
+  const canonical = mapParsedResumeToExistingSchema(processed.resume, { documentSettings: settings });
+  for (const [field, value] of Object.entries(settings)) assert.equal(canonical.documentSettings[field], value);
+  assert.notEqual(canonical.documentSettings.template, 'harshibar');
+  assert.deepEqual(canonical.profile, mapParsedResumeToExistingSchema(fixture().resume).profile);
+});
+
+test("source skill recovery preserves the complete inventory and joins wrapped PDF skill names", () => {
+  const skills = ["Customer Service", "Active Listening", "Problem Solving", "Customer Enquiries", "Customer Engagement", "Relationship Building", "Complaint Resolution", "Client Communication", "Customer Satisfaction", "Interpersonal Skills", "Customer Retention", "Verbal and Written Communication", "Customer Relationship Management (CRM)", "Personalized Service", "Stakeholder Engagement", "Team Collaboration", "CRM Systems", "Cross-Functional Collaboration", "HubSpot", "KPI Achievement", "Salesforce", "Time Management", "Attention to Detail", "Multitasking", "Process Improvement", "Adaptability", "Documentation", "Microsoft Excel"];
+  const raw = `Candidate\nSkills\n${skills.join(", ").replace("Verbal and Written", "Verbal and\nWritten")}\nProfessional Experience\nSales Associate | Retail Co | 2024 - Present\nAssisted customers.`;
+  assert.deepEqual(extractSourceSkills(raw), skills);
+  const result = postProcessParsedResume(fixture(), "Customer Adviser", raw, "Customer Service, Salesforce, AWS");
+  const restored = result.resume.sections.find((section) => section.type === "skills").content.items;
+  skills.forEach((skill) => assert.ok(restored.includes(skill), `Lost skill: ${skill}`));
+  assert.ok(!restored.includes("AWS"));
+  assert.ok(restored.indexOf("Salesforce") < restored.indexOf("Adaptability"));
+});
+
+test("source skills support categories, line lists, inline headings and normalized duplicates", () => {
+  assert.deepEqual(extractSourceSkills("Technical Skills\nLanguages: Python, Java Script, Javascript\nTools: Git, Docker\nEducation\nBSc Computer Science"), ["Python", "JavaScript", "Git", "Docker"]);
+  assert.deepEqual(extractSourceSkills("Technical Expertise\nPython\nSQL\nGit\nProjects\nReporting Portal"), ["Python", "SQL", "Git"]);
+  assert.deepEqual(extractSourceSkills("Skills: Python, SQL\nEducation\nBSc"), ["Python", "SQL"]);
+  assert.deepEqual(extractSourceSkills("Summary\nA developer skilled in Python.\nExperience\nBuilt tools."), []);
+});
+
+test("source inventory restores an omitted AI skills section", () => {
+  const payload = fixture();
+  payload.resume.sections = payload.resume.sections.filter((section) => section.type !== "skills");
+  const result = postProcessParsedResume(payload, "", source);
+  assert.deepEqual(result.resume.sections.find((section) => section.type === "skills").content.items, ["Microsoft Excel", "JavaScript"]);
+});
+
+test("career target in a labelled summary sentence does not become a claimed technical skill", () => {
+  const payload = fixture();
+  const targetRole = "Python Developer / Full Stack Engineer";
+  payload.resume.sections[0].content.text += ` Target role: ${targetRole}.`;
+  assert.doesNotThrow(() => validateParsedResume(payload, source, { targetRole }));
+  payload.resume.sections[0].content.text = "Python developer with AWS experience. Target role: Python Developer / Full Stack Engineer.";
+  assert.throws(() => validateParsedResume(payload, source, { targetRole }), /Unsupported source fact/);
+});
+
+test("target-role exception requires the exact requested role and an explicit label", () => {
+  const payload = fixture();
+  payload.resume.sections[0].content.text += " Target role: AWS Engineer.";
+  assert.throws(() => validateParsedResume(payload, source, { targetRole: "Python Developer" }), /Unsupported source fact/);
+  payload.resume.sections[0].content.text = "Python Developer with customer service experience.";
+  assert.throws(() => validateParsedResume(payload, source, { targetRole: "Python Developer" }), /Unsupported source fact/);
+});
+
+test("experience evidence can recover its matching source header but never invented dates or employers", () => {
+  const payload = fixture();
+  payload.evidence.find((item) => item.path === "sections.2.content.entries.0").quotes = ["i handle customers and solve issues and help in sale. Helped 20 customers daily."];
+  assert.doesNotThrow(() => validateParsedResume(payload, source));
+  payload.resume.sections[2].content.entries[0].dateRange = "2017 - Present";
+  assert.throws(() => validateParsedResume(payload, source), /dateRange/);
+  payload.resume.sections[2].content.entries[0].dateRange = "Jan 2023 - Present";
+  payload.resume.sections[2].content.entries[0].organization = "Fake Corp";
+  assert.throws(() => validateParsedResume(payload, source), /organization/);
+});
+
+test("import prioritizes evidenced developer JD skills without adding JD-only or generic service skills", () => {
+  const payload = fixture();
+  payload.resume.sections[1].content.items = ["Communication", "JavaScript"];
+  const technicalSource = `${source}\nPython, JavaScript, SQL, debugging and object-oriented programming. Built a Python game.`;
+  const result = postProcessParsedResume(payload, "Python Developer", technicalSource, "Python, SQL, AWS, Docker");
+  const skills = result.resume.sections.find((section) => section.type === "skills").content.items;
+  assert.ok(skills.includes("Python"));
+  assert.ok(skills.includes("SQL"));
+  assert.ok(skills.indexOf("Python") < skills.indexOf("Communication"));
+  assert.ok(!skills.some((skill) => /AWS|Docker|Food|POS|Safety/i.test(skill)));
+  assert.equal(result.resume.sections[2].content.entries[0].organization, "Northwind");
+});
+
+test("import quality checks detect generic summaries and short experience AND project bullets", () => {
+  const payload = fixture();
+  payload.resume.sections.push({ type: "projects", content: { entries: [makeEntry({ title: "Python game", bullets: ["Built a Python game."] })] } });
+  const issues = checkResumeQualityGate(payload, `${source}\nPython SQL`, { targetRole: "Python Developer", jobDescription: "Python SQL AWS" });
+  assert.ok(issues.some((issue) => issue.includes("Summary must explicitly address target role")));
+  assert.ok(issues.some((issue) => issue.includes("Skills omit source-supported JD keywords")));
+  assert.ok(issues.some((issue) => issue.includes("experience") && issue.includes("1.5-line")));
+  assert.ok(issues.some((issue) => issue.includes("projects") && issue.includes("1.5-line")));
+  assert.ok(!issues.some((issue) => issue.includes("AWS")));
+});
+
+test("bullet density gate catches short second lines even when the word count passes", () => {
+  const payload = fixture();
+  const bullet = "Built a web app to let users view cafe menus and book a table with clear forms and simple flows for daily online customer use.";
+  assert.ok(bullet.split(/\s+/).length >= 24);
+  assert.ok(bullet.length < 185);
+  payload.resume.sections[2].content.entries[0].bullets = [bullet];
+  const issues = checkResumeQualityGate(payload, source);
+  assert.ok(issues.some((issue) => issue.includes("1.5-line") && issue.includes(bullet)));
+});
 
 test("raw and file sources retain corrections without duplication or aggressive cleaning", () => {
   assert.equal(combineResumeImportSources(source, source), source);
@@ -128,6 +307,11 @@ test("one structured Gemini request, source/JD separation, one safe malformed JS
       assert.equal(body.generationConfig.temperature, 0.1);
       assert.ok(body.generationConfig.responseJsonSchema);
       assert.match(body.systemInstruction.parts[0].text, /never use the JD as evidence/);
+      if (calls === 2) {
+        assert.equal(body.contents[1].role, "model");
+        assert.equal(body.contents[1].parts[0].text, "{broken");
+        assert.match(body.contents[2].parts[0].text, /Malformed JSON/);
+      }
       return calls === 1 ? mockResponse("{broken") : mockResponse(fixture());
     },
   });
@@ -144,6 +328,64 @@ test("provider failure and repeated invalid output never yield a replacement res
   await assert.rejects(parseResumeWithGemini({ rawText: source }, { apiKey: "test", fetchImpl: async () => { calls += 1; return mockResponse({}); } }), /after one retry/);
   assert.equal(calls, 2);
   await assert.rejects(parseResumeWithGemini({ rawText: source }, { apiKey: "" }), /not configured/);
+});
+
+test("optional guessed profile and credential links cannot block an otherwise factual import", async () => {
+  const payload = fixture();
+  payload.resume.profile.linkedin = 'https://linkedin.com/in/a-made-up-user';
+  payload.resume.profile.website = 'javascript:alert(1)';
+  payload.resume.sections[4].content.entries[0].url = 'https://fake-certificates.example/123';
+  const result = await parseResumeWithGemini({rawText: source}, {apiKey:'test', fetchImpl: async()=>mockResponse(payload)});
+  assert.equal(result.resume.profile.linkedin, 'https://linkedin.com/in/avery');
+  assert.equal(result.resume.profile.website, '');
+  assert.equal(result.resume.sections.find(s=>s.type==='certifications').content.entries[0].url, '');
+  assert.equal(result.resume.profile.email, 'avery@example.test');
+});
+
+test("a LinkedIn label alone never becomes a guessed URL", () => {
+  const payload=fixture();payload.resume.profile.linkedin='https://linkedin.com/in/avery-jordan';
+  const repaired=repairGeneratedOptionalLinks(payload,'Avery Jordan | LinkedIn | avery@example.test');
+  assert.equal(repaired.resume.profile.linkedin,'');
+  assert.equal(payload.resume.profile.linkedin,'https://linkedin.com/in/avery-jordan');
+});
+
+test("a source profile link cannot be attached to an unrelated certification entry", () => {
+  const payload=fixture();
+  payload.resume.sections[4].content.entries[0].url='https://linkedin.com/in/avery';
+  payload.evidence.find(e=>e.path==='sections.4.content.entries.0').quotes=['Service Certificate | City Institute | 2023'];
+  const repaired=repairGeneratedOptionalLinks(payload,source);
+  assert.equal(repaired.resume.sections[4].content.entries[0].url,'');
+  assert.equal(validateParsedResume(repaired,source).profile.linkedin,'https://linkedin.com/in/avery');
+});
+
+test("quota failure during a cosmetic quality retry retains the fact-validated resume", async () => {
+  const originalFetch=globalThis.fetch;
+  let calls=0;
+  globalThis.fetch=async()=>{
+    calls++;
+    return calls===1 ? mockResponse(fixture()) : new Response('quota exhausted',{status:429});
+  };
+  try {
+    const result=await parseResumeWithGemini({rawText:source},{apiKey:'test',model:'gemini-2.5-flash'});
+    assert.equal(calls,3);
+    assert.equal(result.resume.profile.fullName,'Avery Jordan');
+    assert.equal(result.model,'gemini-2.5-flash');
+    assert.equal(result.resume.sections.find(s=>s.type==='experience').content.entries[0].organization,'Northwind');
+  } finally {globalThis.fetch=originalFetch;}
+});
+
+test("focused bullet rewrite updates density without replacing candidate facts", async () => {
+  const originalFetch=globalThis.fetch;let calls=0;
+  const bullet='Assisted 20 customers daily, addressing enquiries and resolving service issues while supporting sales through clear communication and practical assistance in a customer-facing role.';
+  globalThis.fetch=async()=>++calls===1 ? mockResponse(fixture()) : mockResponse({edits:[{id:'2:0',bullets:[bullet]}]});
+  try {
+    const result=await parseResumeWithGemini({rawText:source},{apiKey:'test',model:'gemini-3.5-flash-lite'});
+    const entry=result.resume.sections.find(s=>s.type==='experience').content.entries[0];
+    assert.equal(entry.bullets[0],bullet);
+    assert.equal(entry.organization,'Northwind');
+    assert.equal(result.resume.profile.email,'avery@example.test');
+    assert.equal(calls,2);
+  } finally {globalThis.fetch=originalFetch;}
 });
 
 test("PDF row reconstruction retains columns and split tokens", () => {
@@ -194,14 +436,18 @@ test("the actual editor import handler commits once, preserves settings and keep
     const before = structuredClone(initial);
     let current = initial;
     let error = "";
+    let loading = false;
+    let phase = "idle";
     const context = {
       importBusyRef: { current: false }, importRevisionRef: { current: 0 }, uploadedSourceRef: { current: source },
       importText: source, uploadTargetRole: "", uploadInfo: { name: "test.docx" }, jobDescription: "", signedIn: true,
       workingResume: initial,
       ensureCanonicalResume: (value) => value, canonicalToLegacy: (value) => ({ name: value.profile.fullName }),
-      setMessage() {}, setImportError(value) { error = value; }, setImportLoading() {}, setImportOpen() {}, setAuthGateOpen() {}, setImportText() {}, setUploadInfo() {},
+      setMessage() {}, setImportError(value) { error = value; }, setImportLoading(value) { loading = value; }, setImportPhase(value) { phase = value; }, setImportOpen() {}, setAuthGateOpen() {}, setImportText() {}, setUploadInfo() {},
       updateResume(value) { commits++; current = value; },
       fetch: async () => {
+        assert.equal(loading, true);
+        assert.equal(phase, "converting");
         if (outcome === "stale") context.importRevisionRef.current++;
         return { ok: outcome !== "failure", json: async () => outcome === "malformed" ? { ok: true, resume: {} } : { ok: outcome !== "failure", error: "Provider unavailable", resume: structuredClone(initial) } };
       },
@@ -212,6 +458,8 @@ test("the actual editor import handler commits once, preserves settings and keep
     assert.equal(current.documentSettings.pageSize, "US Letter");
     assert.equal(current.documentSettings.resumeLength, 1);
     assert.equal(context.importBusyRef.current, false);
+    assert.equal(loading, false);
+    assert.equal(phase, "idle");
     if (outcome !== "success") { assert.ok(error); assert.equal(context.importText, source); }
   }
 });

@@ -78,7 +78,23 @@
   .carousel-autoplay:hover { border-color: #ba87fa; background: #41265e; }
   @media (prefers-reduced-motion: no-preference) {
     .landing-visual { animation: landingReveal 700ms ease-out both; } .landing-copy { animation: landingReveal 600ms 100ms ease-out both; }
-    .visual-resume { animation: resumeHover 7s ease-in-out infinite; } .visual-analysis { animation: analysisHover 7s -2s ease-in-out infinite; }
+    /* Animate translation separately so each card keeps its original tilt. */
+    .visual-resume, .visual-doc-back {
+      --bounce-lift: -12px;
+      animation: heroVisualBounce 4.8s ease-in-out infinite;
+    }
+    .visual-analysis {
+      --bounce-lift: -10px;
+      animation: heroVisualBounce 5.2s -1.6s ease-in-out infinite;
+    }
+    .visual-callout {
+      --bounce-lift: -6px;
+      animation: heroVisualBounce 5.6s ease-in-out infinite;
+    }
+    .callout-import { animation-delay: -0.8s; }
+    .callout-refine { animation-delay: -2.2s; }
+    .callout-match { animation-delay: -3.6s; }
+    .callout-export { animation-delay: -1.4s; }
   }
   @media (max-width: 1320px) { .examples-carousel { margin-inline: 40px; } .visual-callout { width: 205px; padding: 12px; gap: 9px; } .callout-refine { width: 220px; } .callout-import { left: 0; } }
   @media (max-width: 1050px) {
@@ -106,8 +122,10 @@
   }
 }
 @keyframes landingReveal { from { opacity: 0; translate: 0 9px; } to { opacity: 1; translate: 0 0; } }
-@keyframes resumeHover { 0%, 100% { transform: rotate(-4deg) rotateY(8deg) translateY(0); } 50% { transform: rotate(-4deg) rotateY(8deg) translateY(-5px); } }
-@keyframes analysisHover { 0%, 100% { transform: rotate(4deg) translateY(0); } 50% { transform: rotate(4deg) translateY(4px); } }
+@keyframes heroVisualBounce {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 var(--bounce-lift, -8px); }
+}
 
 /* Split landing layout; all selectors stay outside the resume editor and exports. */
 @media screen {
